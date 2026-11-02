@@ -5,13 +5,16 @@ from . import models as m
 class TravelForm(forms.ModelForm):
     class Meta:
         model = m.Travel
-        fields = ['employee','route','departure_at','return_at','work_starts_at','work_ends_at','reason','purpose','notes']
+        fields = ['employee','route','departure_at','return_at','work_starts_at','work_ends_at','protocol_number','protocol_date','reason','purpose','actions_description','notes']
         labels = {'employee':'Εργαζόμενος','route':'Διαδρομή','departure_at':'Αναχώρηση','return_at':'Επιστροφή','work_starts_at':'Έναρξη εργασιών','work_ends_at':'Λήξη εργασιών','reason':'Αιτία','purpose':'Σκοπός','notes':'Παρατηρήσεις'}
         widgets = {name:forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}) for name in ['departure_at','return_at','work_starts_at','work_ends_at']}
-        widgets.update(purpose=forms.Textarea(attrs={'rows':3}),notes=forms.Textarea(attrs={'rows':2}))
+        widgets.update(protocol_date=forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}),actions_description=forms.Textarea(attrs={'rows':3}),purpose=forms.Textarea(attrs={'rows':3}),notes=forms.Textarea(attrs={'rows':2}))
 
     def __init__(self,*args,user,**kwargs):
         super().__init__(*args,**kwargs)
+        self.fields['protocol_number'].label='Αριθμός πρωτοκόλλου'
+        self.fields['protocol_date'].label='Ημερομηνία πρωτοκόλλου'
+        self.fields['actions_description'].label='Περιγραφή πεπραγμένων'
         self.fields['employee'].queryset=m.Employee.objects.filter(is_active=True).order_by('display_name')
         if not user.has_perm('core.add_travel'):
             self.fields['employee'].queryset=self.fields['employee'].queryset.filter(user=user)
@@ -79,14 +82,14 @@ class OvernightForm(forms.ModelForm):
         self.travel=travel
         super().__init__(*args,**kwargs)
         self.fields['date'].input_formats=['%Y-%m-%d']
-        self.fields['stop'].queryset=travel.route.stops.all()
+        self.fields['stop'].queryset=travel.route.stops.all() if travel.route_id else m.RouteStop.objects.none()
         self.fields['stop'].label_from_instance=lambda stop:stop.city
         self.fields['accommodation_type'].queryset=m.AccommodationType.objects.filter(is_active=True).order_by('name')
 
     def clean(self):
         data=super().clean()
         day=data.get('date');stop=data.get('stop');kind=data.get('accommodation_type');cost=data.get('estimated_cost')
-        if day and not self.travel.departure_at <= day < self.travel.return_at:
+        if day and self.travel.departure_at and self.travel.return_at and not self.travel.departure_at <= day < self.travel.return_at:
             self.add_error('date','Η νύχτα πρέπει να είναι από την αναχώρηση έως την προηγουμένη της επιστροφής.')
         if kind and not kind.has_cost and cost not in (None,0):
             self.add_error('estimated_cost','Αυτός ο τύπος διαμονής δεν έχει κόστος.')

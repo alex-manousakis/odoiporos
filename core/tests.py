@@ -143,3 +143,46 @@ class TravelCostEntryTests(TravelEntryTests):
         response=self.client.post(self.url,{**self.payload,'expenses-0-kind':'mileage'})
         self.assertEqual(response.status_code,200)
         self.assertFalse(self.travel.expenses.exists())
+
+
+class UnifiedTravelTests(TravelCostEntryTests):
+    def test_unified_create_with_children(self):
+        response=self.client.get('/travels/new/')
+        self.assertContains(response,'generate-nights')
+        response=self.client.post('/travels/new/',{**self.data,'return_at':'2026-11-05',**self.payload,'protocol_number':'123'})
+        self.assertEqual(response.status_code,302)
+        created=Travel.objects.exclude(pk=self.travel.pk).get()
+        self.assertEqual(created.protocol_number,'123')
+        self.assertEqual(created.expenses.count(),1)
+        self.assertEqual(created.overnights.count(),1)
+
+    def test_invalid_child_prevents_parent_changes(self):
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',{**self.data,'return_at':'2026-11-05',**self.payload,'purpose':'Changed','stays-0-date':'2026-11-06'})
+        self.assertEqual(response.status_code,200)
+        self.travel.refresh_from_db()
+        self.assertEqual(self.travel.purpose,'Test')
+        self.assertFalse(self.travel.expenses.exists())
+
+    def test_edit_protocol_and_actions(self):
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',{**self.data,'return_at':'2026-11-05',**self.payload,'protocol_number':'456','protocol_date':'2026-11-01','actions_description':'Completed'})
+        self.assertEqual(response.status_code,302)
+        self.travel.refresh_from_db()
+        self.assertEqual(self.travel.actions_description,'Completed')
+        self.assertEqual(self.travel.protocol_date,date(2026,11,1))
+
+    def test_attachment_requires_travel_access(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            response=self.client.post(f'/travels/{self.travel.pk}/edit/',{**self.data,'return_at':'2026-11-05',**self.payload,'attachments':SimpleUploadedFile('receipt.txt',b'receipt')})
+            self.assertEqual(response.status_code,302)
+            attachment=self.travel.attachments.get()
+            url=f'/attachments/{attachment.pk}/download/'
+            response=self.client.get(url)
+            self.assertEqual(response.status_code,200)
+            self.assertIn('attachment',response['Content-Disposition'])
+            for closer in response._resource_closers:
+                closer()
+            Travel.objects.filter(pk=self.travel.pk).update(employee=self.other)
+            self.assertEqual(self.client.get(url).status_code,404)

@@ -20,19 +20,72 @@ def home(request):
 def travel_create(request):
     if not request.user.has_perm('core.add_travel') and not Employee.objects.filter(user=request.user,is_active=True).exists():
         raise PermissionDenied
-    form=TravelForm(request.POST or None,user=request.user)
-    if request.method=='POST' and form.is_valid():
-        status=TravelStatus.objects.filter(legacy_id=1).first()
-        if status is None:
-            form.add_error(None,'Δεν έχει εισαχθεί η αρχική κατάσταση μετακίνησης.')
-        else:
-            with transaction.atomic():
-                travel=form.save(commit=False)
-                travel.status=status
-                travel.full_clean()
-                travel.save()
-            return redirect('core:travel_detail',pk=travel.pk)
-    return render(request,'core/travel_form.html',{'form':form})
+    return travel_editor(request)
+
+
+@login_required
+def travel_edit(request,pk):
+    with transaction.atomic():
+        travel=get_object_or_404(visible_travels(request.user).select_for_update(),pk=pk)
+        if not can_edit_costs(request.user,travel):
+            raise PermissionDenied
+        return travel_editor(request,travel)
+
+
+def travel_editor(request,travel=None):
+    from .forms import ExpenseFormSet, StayFormSet
+    from .models import Route, TravelAttachment
+    from uuid import uuid4
+    from pathlib import Path
+    post=request.POST if request.method=='POST' else None
+    form=TravelForm(post,instance=travel,user=request.user)
+    parent_valid=form.is_valid() if post is not None else False
+    parent=form.instance
+    expenses=ExpenseFormSet(post,instance=parent,prefix='expenses') if post is None or 'expenses-TOTAL_FORMS' in post else ExpenseFormSet(instance=parent,prefix='expenses')
+    stays=StayFormSet(post,instance=parent,prefix='stays',form_kwargs={'travel':parent}) if post is None or 'stays-TOTAL_FORMS' in post else StayFormSet(instance=parent,prefix='stays',form_kwargs={'travel':parent})
+    files=request.FILES.getlist('attachments')
+    # Uploaded documents are downloaded through an authenticated view, never served inline.
+    for upload in files:
+        if upload.size > 10*1024*1024:
+            form.add_error(None,'Κάθε συνημμένο πρέπει να είναι έως 10 MB.')
+    if len(files)>10:
+        form.add_error(None,'Επιτρέπονται έως 10 νέα συνημμένα ανά αποθήκευση.')
+    if post is not None:
+        children_valid=expenses.is_valid() if expenses.is_bound else True
+        children_valid=(stays.is_valid() if stays.is_bound else True) and children_valid
+        if parent_valid and children_valid and not form.errors:
+            if parent.pk is None:
+                parent.status=TravelStatus.objects.filter(legacy_id=1).first()
+                if parent.status is None:
+                    form.add_error(None,'Δεν υπάρχει αρχική κατάσταση μετακίνησης.')
+            if not form.errors:
+                written=[]
+                try:
+                    with transaction.atomic():
+                        parent.full_clean();parent.save()
+                        if expenses.is_bound: expenses.save()
+                        if stays.is_bound: stays.save()
+                        for upload in files:
+                            attachment=TravelAttachment(travel=parent,original_name=Path(upload.name).name[:255])
+                            attachment.file.save(uuid4().hex+Path(upload.name).suffix[:12],upload,save=False)
+                            written.append(attachment.file)
+                            attachment.save()
+                except Exception:
+                    for file in written: file.delete(save=False)
+                    raise
+                return redirect('core:travel_detail',pk=parent.pk)
+    routes=[{'id':r.pk,'name':r.name,'stops':[{'id':n.pk,'city':n.city} for n in r.stops.all()]} for r in Route.objects.filter(is_active=True).prefetch_related('stops')]
+    return render(request,'core/travel_form.html',{'form':form,'travel':parent,'expenses':expenses,'stays':stays,'routes':routes})
+
+
+@login_required
+def attachment_download(request,pk):
+    from .models import TravelAttachment
+    from django.http import FileResponse
+    attachment=get_object_or_404(TravelAttachment.objects.filter(travel__in=visible_travels(request.user)),pk=pk)
+    response=FileResponse(attachment.file.open('rb'),as_attachment=True,filename=attachment.original_name,content_type='application/octet-stream')
+    response['X-Content-Type-Options']='nosniff'
+    return response
 
 
 @login_required

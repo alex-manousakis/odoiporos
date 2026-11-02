@@ -306,3 +306,10 @@ class SettlementItem(models.Model):
         if self.calculation_id:
             if self.calculation.stage != CalculationSnapshot.Stage.ACTUAL or not self.calculation.frozen_at:
                 raise ValidationError("Settlement requires a frozen actual calculation.")
+
+
+class TravelAttachment(models.Model):
+    travel = models.ForeignKey(Travel, on_delete=models.CASCADE, related_name="attachments")
+    original_name = models.CharField(max_length=255)
+    file = models.FileField(upload_to="travel_attachments/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
