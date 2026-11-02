@@ -35,3 +35,82 @@ class TravelForm(forms.ModelForm):
                 self.instance.applied_category=None
             self.instance.category_review_required=self.instance.applied_category_id is None
         return data
+
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model=m.TravelExpense
+        fields=['kind','transport','description','estimated_amount','estimated_distance_km']
+        labels={'kind':'Είδος','transport':'Μέσο μετακίνησης','description':'Περιγραφή','estimated_amount':'Εκτιμώμενο ποσό (€)','estimated_distance_km':'Χιλιόμετρα ΙΧ'}
+
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['kind'].choices=[('ticket','Εισιτήριο'),('mileage','Χιλιομετρική αποζημίωση'),('other','Λοιπά έξοδα')]
+        self.fields['transport'].queryset=m.TransportMode.objects.filter(is_active=True).order_by('name')
+
+    def clean(self):
+        data=super().clean()
+        kind=data.get('kind');transport=data.get('transport')
+        if kind=='mileage':
+            if not transport or not transport.has_mileage_cost:
+                self.add_error('transport','Επιλέξτε μέσο με χιλιομετρική αποζημίωση.')
+            if not data.get('estimated_distance_km'):
+                self.add_error('estimated_distance_km','Συμπληρώστε θετικά χιλιόμετρα.')
+            if data.get('estimated_amount') is not None:
+                self.add_error('estimated_amount','Το ποσό χιλιομετρικής αποζημίωσης θα υπολογιστεί από την τιμή ανά χιλιόμετρο.')
+        elif kind:
+            if data.get('estimated_amount') is None:
+                self.add_error('estimated_amount','Συμπληρώστε το εκτιμώμενο ποσό.')
+            if data.get('estimated_distance_km') is not None:
+                self.add_error('estimated_distance_km','Τα χιλιόμετρα συμπληρώνονται μόνο για χιλιομετρική αποζημίωση.')
+            if kind=='ticket' and (not transport or not transport.has_ticket_cost):
+                self.add_error('transport','Επιλέξτε μέσο με κόστος εισιτηρίου.')
+        return data
+
+
+class OvernightForm(forms.ModelForm):
+    class Meta:
+        model=m.OvernightStay
+        fields=['date','stop','accommodation_type','estimated_cost']
+        labels={'date':'Νύχτα διαμονής','stop':'Τόπος διαμονής','accommodation_type':'Τύπος διαμονής','estimated_cost':'Εκτιμώμενο κόστος (€)'}
+        widgets={'date':forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'})}
+
+    def __init__(self,*args,travel,**kwargs):
+        self.travel=travel
+        super().__init__(*args,**kwargs)
+        self.fields['date'].input_formats=['%Y-%m-%d']
+        self.fields['stop'].queryset=travel.route.stops.all()
+        self.fields['stop'].label_from_instance=lambda stop:stop.city
+        self.fields['accommodation_type'].queryset=m.AccommodationType.objects.filter(is_active=True).order_by('name')
+
+    def clean(self):
+        data=super().clean()
+        day=data.get('date');stop=data.get('stop');kind=data.get('accommodation_type');cost=data.get('estimated_cost')
+        if day and not self.travel.departure_at <= day < self.travel.return_at:
+            self.add_error('date','Η νύχτα πρέπει να είναι από την αναχώρηση έως την προηγουμένη της επιστροφής.')
+        if kind and not kind.has_cost and cost not in (None,0):
+            self.add_error('estimated_cost','Αυτός ο τύπος διαμονής δεν έχει κόστος.')
+        if kind and kind.has_cost and cost is None:
+            self.add_error('estimated_cost','Συμπληρώστε εκτιμώμενο κόστος.')
+        if stop:
+            for name in ['city','is_abroad','is_expensive','is_island','compensation_band']:
+                setattr(self.instance,name,getattr(stop,name))
+        return data
+
+
+class OvernightFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        dates=[]
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get('DELETE'):
+                day=form.cleaned_data.get('date')
+                if day in dates:
+                    raise forms.ValidationError('Κάθε νύχτα διαμονής καταχωρίζεται μία φορά.')
+                dates.append(day)
+
+
+ExpenseFormSet=forms.inlineformset_factory(m.Travel,m.TravelExpense,form=ExpenseForm,extra=2,can_delete=True)
+StayFormSet=forms.inlineformset_factory(m.Travel,m.OvernightStay,form=OvernightForm,formset=OvernightFormSet,extra=2,can_delete=True)

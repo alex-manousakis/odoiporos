@@ -80,3 +80,66 @@ class TravelEntryTests(TestCase):
         travel=Travel.objects.get()
         Travel.objects.filter(pk=travel.pk).update(employee=self.other)
         self.assertEqual(self.client.get(f'/travels/{travel.pk}/').status_code,404)
+
+
+class TravelCostEntryTests(TravelEntryTests):
+    def setUp(self):
+        super().setUp()
+        from .models import TransportMode, AccommodationType, RouteStop
+        self.transport=TransportMode.objects.create(name='Plane',code='P',has_ticket_cost=True)
+        self.hotel=AccommodationType.objects.create(name='Hotel',code='H',has_cost=True)
+        self.stop=RouteStop.objects.create(route=self.route,sequence=1,city='B')
+        self.client.force_login(self.user)
+        self.client.post('/travels/new/',{**self.data,'return_at':'2026-11-05'})
+        self.travel=Travel.objects.get()
+        self.url=f'/travels/{self.travel.pk}/costs/'
+        self.payload={
+            'expenses-TOTAL_FORMS':'1','expenses-INITIAL_FORMS':'0',
+            'expenses-0-kind':'ticket','expenses-0-transport':str(self.transport.pk),'expenses-0-estimated_amount':'120.50',
+            'stays-TOTAL_FORMS':'1','stays-INITIAL_FORMS':'0',
+            'stays-0-date':'2026-11-03','stays-0-stop':str(self.stop.pk),
+            'stays-0-accommodation_type':str(self.hotel.pk),'stays-0-estimated_cost':'80',
+        }
+
+    # Parent tests are exercised separately; this class tests the cost workflow.
+    test_requires_login=None
+    test_create_and_view_own_travel=None
+    test_employee_cannot_submit_for_someone_else=None
+    test_invalid_date_order_is_rejected=None
+    test_missing_historical_category_requires_review=None
+    test_cannot_view_another_employees_travel=None
+
+    def test_save_costs_and_stay(self):
+        self.assertEqual(self.client.get(self.url).status_code,200)
+        self.assertEqual(self.client.post(self.url,self.payload).status_code,302)
+        self.assertEqual(self.travel.expenses.get().estimated_amount,Decimal('120.50'))
+        self.assertEqual(self.travel.overnights.get().city,'B')
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,200)
+
+    def test_invalid_stay_rolls_back_both_collections(self):
+        response=self.client.post(self.url,{**self.payload,'stays-0-date':'2026-11-05'})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(self.travel.expenses.exists())
+        self.assertFalse(self.travel.overnights.exists())
+
+    def test_cannot_select_stop_from_another_route(self):
+        from .models import RouteStop
+        other=Route.objects.create(name='Other',origin='X',destination='Y')
+        stop=RouteStop.objects.create(route=other,sequence=1,city='Y')
+        self.assertEqual(self.client.post(self.url,{**self.payload,'stays-0-stop':str(stop.pk)}).status_code,200)
+        self.assertFalse(self.travel.overnights.exists())
+
+    def test_approved_travel_is_locked(self):
+        from django.utils import timezone
+        Travel.objects.filter(pk=self.travel.pk).update(approved_at=timezone.now())
+        self.assertEqual(self.client.post(self.url,self.payload).status_code,403)
+        self.assertFalse(self.travel.expenses.exists())
+
+    def test_other_employee_cannot_edit(self):
+        Travel.objects.filter(pk=self.travel.pk).update(employee=self.other)
+        self.assertEqual(self.client.post(self.url,self.payload).status_code,404)
+
+    def test_mileage_requires_distance_and_no_manual_amount(self):
+        response=self.client.post(self.url,{**self.payload,'expenses-0-kind':'mileage'})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(self.travel.expenses.exists())
