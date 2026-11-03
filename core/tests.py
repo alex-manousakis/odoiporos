@@ -311,3 +311,53 @@ class TemplateCompilationTests(SimpleTestCase):
         for path in root.rglob('*.html'):
             with self.subTest(template=str(path.relative_to(root))):
                 get_template(path.relative_to(root).as_posix())
+
+
+class RouteManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='route-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.data={'origin':'Heraklion','distance_km':'664','is_active':'on','has_daily_allowance':'on','stops-TOTAL_FORMS':'5','stops-INITIAL_FORMS':'0','stops-0-city':'Athens','stops-0-compensation_band':'1','stops-0-is_expensive':'on'}
+
+    def test_create_domestic_route(self):
+        response=self.client.post('/routes/new/',self.data)
+        self.assertEqual(response.status_code,302)
+        route=Route.objects.get()
+        self.assertEqual(route.destination,'Athens')
+        self.assertEqual(route.stops.get().sequence,1)
+        self.assertTrue(route.stops.get().is_expensive)
+        self.assertEqual(self.client.get('/routes/').status_code,200)
+        self.assertEqual(self.client.get(f'/routes/{route.pk}/edit/').status_code,200)
+
+    def test_create_abroad_with_domestic_stop(self):
+        data={**self.data,'is_abroad':'on','stops-1-city':'Brussels','stops-1-is_abroad':'on','stops-1-compensation_band':'2'}
+        self.assertEqual(self.client.post('/routes/new/',data).status_code,302)
+        route=Route.objects.get()
+        self.assertEqual(route.stops.count(),2)
+        self.assertFalse(route.stops.first().is_abroad)
+        self.assertTrue(route.stops.last().is_abroad)
+
+    def test_requires_destination(self):
+        response=self.client.post('/routes/new/',{**self.data,'stops-0-city':''})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(Route.objects.exists())
+
+    def test_conflicting_flags_are_rejected(self):
+        response=self.client.post('/routes/new/',{**self.data,'stops-0-is_island':'on'})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(Route.objects.exists())
+
+    def test_permission_required(self):
+        user=get_user_model().objects.create_user(username='no-route-rights')
+        self.client.force_login(user)
+        self.assertEqual(self.client.get('/routes/').status_code,403)
+        self.assertEqual(self.client.post('/routes/new/',self.data).status_code,403)
+
+    def test_unused_route_can_be_edited_preserving_stop_id(self):
+        self.client.post('/routes/new/',self.data)
+        route=Route.objects.get();stop=route.stops.get()
+        data={**self.data,'stops-TOTAL_FORMS':'1','stops-INITIAL_FORMS':'1','stops-0-id':str(stop.pk),'stops-0-city':'Thessaloniki'}
+        self.assertEqual(self.client.post(f'/routes/{route.pk}/edit/',data).status_code,302)
+        route.refresh_from_db();stop.refresh_from_db()
+        self.assertEqual(route.destination,'Thessaloniki')
+        self.assertEqual(stop.sequence,1)

@@ -110,6 +110,7 @@ def distance(**kwargs):
 
 
 class Route(NamedReference):
+    short_description = models.CharField(max_length=100, blank=True)
     origin = models.CharField(max_length=100)
     destination = models.CharField(max_length=150)
     distance_km = distance(default=0)

@@ -169,3 +169,5 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_ACCOMMODATION_LEGACY_ID = 5
 
 TEMPLATES[0]["OPTIONS"]["context_processors"].append("core.access.navigation")
+
+ROUTE_COMPENSATION_CHOICES = [(1, 'Όλες οι λοιπές χώρες'), (2, 'Εσθονία, Λετονία, Λιθουανία, Τσεχία, Ουγγαρία'), (3, 'Βουλγαρία, Ρουμανία')]
