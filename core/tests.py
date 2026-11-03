@@ -361,3 +361,87 @@ class RouteManagementTests(TestCase):
         route.refresh_from_db();stop.refresh_from_db()
         self.assertEqual(route.destination,'Thessaloniki')
         self.assertEqual(stop.sequence,1)
+
+
+class ApplicationParametersTests(TestCase):
+    def test_admin_can_save_parameters(self):
+        from .models import ApplicationParameters
+        user=get_user_model().objects.create_superuser(username='params-admin',password='Test-Password-123')
+        self.client.force_login(user)
+        self.assertEqual(self.client.get('/parameters/').status_code,200)
+        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5'})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(ApplicationParameters.objects.get(pk=1).countriescomp2,'Group two')
+
+    def test_no_permission_cannot_read_or_write(self):
+        self.client.force_login(get_user_model().objects.create_user(username='params-denied'))
+        self.assertEqual(self.client.get('/parameters/').status_code,403)
+        self.assertEqual(self.client.post('/parameters/',{}).status_code,403)
+
+    def test_read_only_user_cannot_save(self):
+        from django.contrib.auth.models import Permission
+        user=get_user_model().objects.create_user(username='params-reader')
+        user.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_applicationparameters'))
+        self.client.force_login(user)
+        self.assertEqual(self.client.get('/parameters/').status_code,200)
+        self.assertEqual(self.client.post('/parameters/',{}).status_code,403)
+
+    def test_route_labels_follow_database_parameters(self):
+        from .models import ApplicationParameters
+        from .route_management import StopForm
+        ApplicationParameters.objects.create(pk=1,countriescomp2='Updated countries')
+        self.assertIn((2,'Updated countries'),list(StopForm().fields['compensation_band'].choices))
+
+
+class EmployeeManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='employee-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.category=EmployeeCategory.objects.create(name='Category A')
+        self.data={'display_name':'Test Employee','first_name':'Test','last_name':'Employee','is_active':'on','new_category':self.category.pk,'category_from':'2026-11-03'}
+
+    def test_create_employee_and_initial_category(self):
+        self.assertEqual(self.client.post('/employees/new/',self.data).status_code,302)
+        employee=Employee.objects.get()
+        self.assertEqual(employee.category_history.get().category,self.category)
+        self.assertEqual(self.client.get('/employees/').status_code,200)
+        self.assertEqual(self.client.get(f'/employees/{employee.pk}/edit/').status_code,200)
+
+    def test_category_change_closes_previous_interval(self):
+        self.client.post('/employees/new/',self.data)
+        employee=Employee.objects.get()
+        other=EmployeeCategory.objects.create(name='Category B')
+        response=self.client.post(f'/employees/{employee.pk}/edit/',{**self.data,'new_category':other.pk,'category_from':'2026-12-01'})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(employee.category_history.first().valid_to,date(2026,11,30))
+        self.assertEqual(employee.category_history.count(),2)
+
+    def test_backdated_category_change_is_rejected(self):
+        self.client.post('/employees/new/',self.data)
+        employee=Employee.objects.get()
+        other=EmployeeCategory.objects.create(name='Category B')
+        self.assertEqual(self.client.post(f'/employees/{employee.pk}/edit/',{**self.data,'new_category':other.pk,'category_from':'2026-11-02'}).status_code,200)
+        self.assertEqual(employee.category_history.count(),1)
+
+    def test_employee_permissions_required(self):
+        user=get_user_model().objects.create_user(username='ordinary')
+        self.client.force_login(user)
+        self.assertEqual(self.client.get('/employees/').status_code,403)
+        self.assertEqual(self.client.post('/employees/new/',self.data).status_code,403)
+
+    def test_department_editor_cannot_view_other_department_or_link_account(self):
+        from .models import Department, UserAccess
+        from django.contrib.auth.models import Permission
+        department=Department.objects.create(name='Unit A')
+        other=Department.objects.create(name='Unit B')
+        employee=Employee.objects.create(display_name='Other employee',department=other)
+        editor=get_user_model().objects.create_user(username='unit-editor')
+        access=UserAccess.objects.create(user=editor,scope='department');access.departments.add(department)
+        editor.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='change_employee'))
+        self.client.force_login(editor)
+        self.assertEqual(self.client.get(f'/employees/{employee.pk}/edit/').status_code,404)
+        employee.department=department;employee.save()
+        data={**self.data,'department':department.pk,'user':self.admin.pk}
+        self.assertEqual(self.client.post(f'/employees/{employee.pk}/edit/',data).status_code,302)
+        employee.refresh_from_db()
+        self.assertIsNone(employee.user_id)

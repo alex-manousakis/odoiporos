@@ -326,3 +326,36 @@ class UserAccess(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="travel_access")
     scope = models.CharField(max_length=12, choices=Scope.choices, default=Scope.OWN)
     departments = models.ManyToManyField(Department, blank=True)
+
+
+class ApplicationParameters(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    countriescomp2 = models.CharField('Χώρες κατηγορίας 2', max_length=255, blank=True)
+    countriescomp3 = models.CharField('Χώρες κατηγορίας 3', max_length=255, blank=True)
+    expensivecitiesingreece = models.CharField('Ειδικές πόλεις Ελλάδας', max_length=255, blank=True)
+    expensivecitiesabroad = models.CharField('Ειδικές πόλεις εξωτερικού', max_length=255, blank=True)
+    ekkatharistis = models.CharField('Ονοματεπώνυμο εκκαθαριστή', max_length=255, blank=True)
+    perifereiarxis = models.CharField('Περιφερειάρχης', max_length=255, blank=True)
+    prosfonisiypografis = models.CharField('Προσφώνηση υπογραφής', max_length=255, blank=True)
+    prosfonisiproistamenou = models.CharField('Προσφώνηση προϊσταμένου', max_length=255, blank=True)
+    usernameproistamenou = models.CharField('Όνομα χρήστη προϊσταμένου (παλιό σύστημα)', max_length=255, blank=True)
+    username_anapl_proistamenou = models.CharField('Όνομα χρήστη αναπληρωτή (παλιό σύστημα)', max_length=255, blank=True)
+    attachmentsfolder = models.CharField('Παλιός κατάλογος συνημμένων (πληροφοριακό)', max_length=255, blank=True)
+    lasttravelnum = models.PositiveIntegerField('Τελευταίος αριθμός μετακίνησης', null=True, blank=True)
+    travelnumdigits = models.PositiveIntegerField('Ψηφία αρίθμησης', null=True, blank=True)
+    allowedtravelsperyear = models.PositiveIntegerField('Όριο ημερών μετακίνησης ανά έτος', null=True, blank=True)
+    homedistancelimit = models.DecimalField('Όριο χλμ. εντός έδρας', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    overnightdistancelimit = models.DecimalField('Γενικό όριο χλμ. διανυκτέρευσης', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    kmcost = models.DecimalField('Βασική τιμή χιλιομέτρου ΙΧ', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    mtpy = models.DecimalField('ΜΤΠΥ (%)', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    geotee = models.DecimalField('ΓΕΩΤΕΕ (%)', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    percentageofbudgetinc = models.DecimalField('Αύξηση προϋπολογισμού (%)', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    budgetdownlimit = models.DecimalField('Ελάχιστο ποσό προϋπολογισμού', max_digits=14, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)])
+    countdistanceurl = models.URLField("Σύνδεσμος υπολογισμού απόστασης", max_length=1000, blank=True)
+    default_accommodation = models.ForeignKey(AccommodationType, verbose_name="Προεπιλεγμένη διαμονή", on_delete=models.PROTECT, null=True, blank=True)
+    default_transport = models.ForeignKey(TransportMode, verbose_name="Προεπιλεγμένο μέσο μετακίνησης", on_delete=models.PROTECT, null=True, blank=True)
+    roundtotalbudget = models.BooleanField("Στρογγυλοποίηση προϋπολογισμού σε ακέραιο προς τα πάνω", default=False)
+
+    class Meta:
+        verbose_name = "Παράμετροι εφαρμογής"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="application_parameters_singleton")]

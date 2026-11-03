@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from .models import Route, RouteStop
+from .models import Route, RouteStop, ApplicationParameters
 
 
 class RouteForm(forms.ModelForm):
@@ -24,7 +24,10 @@ class StopForm(forms.ModelForm):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.fields['compensation_band']=forms.TypedChoiceField(label='Κατηγορία αποζημίωσης',coerce=int,initial=self.instance.compensation_band if self.instance.pk else 1,choices=getattr(settings,'ROUTE_COMPENSATION_CHOICES',[(1,'Κατηγορία 1'),(2,'Κατηγορία 2'),(3,'Κατηγορία 3')]))
+        parameters=ApplicationParameters.objects.filter(pk=1).first()
+        choices=[(1,'Όλες οι λοιπές χώρες'),(2,parameters.countriescomp2 or 'Κατηγορία 2'),(3,parameters.countriescomp3 or 'Κατηγορία 3')] if parameters else getattr(settings,'ROUTE_COMPENSATION_CHOICES',[(1,'Κατηγορία 1'),(2,'Κατηγορία 2'),(3,'Κατηγορία 3')])
+        self.fields['is_expensive'].label=('Ειδική πόλη: '+parameters.expensivecitiesingreece+' / '+parameters.expensivecitiesabroad) if parameters else self.fields['is_expensive'].label
+        self.fields['compensation_band']=forms.TypedChoiceField(label='Κατηγορία αποζημίωσης',coerce=int,initial=self.instance.compensation_band if self.instance.pk else 1,choices=choices)
 
     def has_changed(self):
         if not self.instance.pk and self.is_bound and not self.data.get(self.add_prefix('city'),'').strip():
