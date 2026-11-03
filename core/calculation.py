@@ -97,17 +97,19 @@ def calculate_estimate(travel_id,actor):
         if travel.route.is_abroad:abroad=total
         else:domestic=total
         details['rates'].append({'type':'daily','id':rate.pk,'per_day':str(per_day)})
+    if travel.expenses.filter(kind='mileage',is_cancelled=False).count()>1:
+        raise ValidationError('Only one mileage entry is allowed per full route.')
     for expense in travel.expenses.select_related('transport').filter(is_cancelled=False):
         amount=ZERO
         if expense.kind=='mileage':
-            if not expense.transport or not expense.transport.has_mileage_cost or not expense.estimated_distance_km or expense.estimated_distance_km<=0:
+            if not expense.transport or not expense.transport.has_mileage_cost or travel.route.distance_km<=0:
                 raise ValidationError('Ελέγξτε μέσο και χιλιόμετρα ΙΧ.')
             rate_value=travel.mileage_override
             if rate_value is None or rate_value<=0:
                 rate=unique_rate(MileageRate,valid_from__lte=start,valid_to__gte=start)
                 rate_value=rate.amount_per_km
                 details['rates'].append({'type':'mileage','id':rate.pk,'amount':str(rate_value)})
-            amount=rounded(expense.estimated_distance_km*rate_value);mileage+=amount
+            amount=rounded(travel.route.distance_km*rate_value);mileage+=amount
         elif expense.kind in ('ticket','other'):
             if expense.estimated_amount is None or expense.estimated_amount<0:raise ValidationError('Λείπει ποσό δαπάνης.')
             amount=expense.estimated_amount
@@ -139,6 +141,6 @@ def calculate_estimate(travel_id,actor):
     state=input_state(travel)
     details.update(signature=signature(state),source=json.loads(json.dumps(state,default=str)))
     revision=(travel.calculations.filter(stage='estimate').aggregate(n=Max('revision'))['n'] or 0)+1
-    snapshot=CalculationSnapshot(travel=travel,stage='estimate',revision=revision,calculated_by=actor,algorithm_version='estimate-1',inputs=details,daily_domestic=domestic,daily_abroad=abroad,mileage=mileage,tickets=tickets,other=other,claimed_accommodation=claimed,allowed_accommodation=allowed,total=total,document_budget=budget)
+    snapshot=CalculationSnapshot(travel=travel,stage='estimate',revision=revision,calculated_by=actor,algorithm_version='estimate-2',inputs=details,daily_domestic=domestic,daily_abroad=abroad,mileage=mileage,tickets=tickets,other=other,claimed_accommodation=claimed,allowed_accommodation=allowed,total=total,document_budget=budget)
     snapshot.full_clean();snapshot.save()
     return snapshot

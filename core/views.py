@@ -75,8 +75,9 @@ def travel_editor(request,travel=None):
                 except Exception:
                     for file in written: file.delete(save=False)
                     raise
+                calculate_after_save(request,parent)
                 return redirect('core:travel_detail',pk=parent.pk)
-    routes=[{'id':r.pk,'name':r.name,'stops':[{'id':n.pk,'city':n.city} for n in r.stops.all()]} for r in Route.objects.filter(is_active=True).prefetch_related('stops')]
+    routes=[{'id':r.pk,'name':r.name,'distance_km':str(r.distance_km),'stops':[{'id':n.pk,'city':n.city} for n in r.stops.all()]} for r in Route.objects.filter(is_active=True).prefetch_related('stops')]
     from django.conf import settings
     parameters=ApplicationParameters.objects.filter(pk=1).first()
     default_stay=parameters.default_accommodation if parameters else AccommodationType.objects.filter(legacy_id=getattr(settings,"DEFAULT_ACCOMMODATION_LEGACY_ID",None),is_active=True).first()
@@ -98,7 +99,7 @@ def travel_detail(request,pk):
     travel=get_object_or_404(visible_travels(request.user),pk=pk)
     from .calculation import input_state, signature
     calculation=travel.calculations.filter(stage='estimate').order_by('-revision').first()
-    stale=bool(calculation and calculation.inputs.get('signature')!=signature(input_state(travel)))
+    stale=bool(calculation and (calculation.algorithm_version!='estimate-2' or calculation.inputs.get('signature')!=signature(input_state(travel))))
     return render(request,'core/travel_detail.html',{'travel':travel,'can_edit_costs':can_edit_costs(request.user,travel),'calculation':calculation,'calculation_stale':stale})
 
 
@@ -123,6 +124,7 @@ def travel_costs(request,pk):
             stays_valid=stays.is_valid()
             if expenses_valid and stays_valid:
                 expenses.save();stays.save()
+                calculate_after_save(request,travel)
                 return redirect('core:travel_detail',pk=travel.pk)
     return render(request,'core/travel_costs.html',{'travel':travel,'expenses':expenses,'stays':stays})
 
@@ -142,3 +144,17 @@ def travel_calculate(request,pk):
     except ValidationError as error:
         messages.error(request,' '.join(error.messages))
     return redirect('core:travel_detail',pk=pk)
+
+
+def calculate_after_save(request,travel):
+    from django.contrib import messages
+    from django.core.exceptions import ValidationError, PermissionDenied
+    from .calculation import calculate_estimate
+    try:
+        calculate_estimate(travel.pk,request.user)
+    except ValidationError as error:
+        messages.warning(request,'Travel saved, but the estimate could not be updated: '+' '.join(error.messages))
+    except PermissionDenied:
+        messages.warning(request,'Travel saved. Your account does not have permission to calculate its estimate.')
+    else:
+        messages.success(request,'Travel saved and estimated cost calculated automatically.')

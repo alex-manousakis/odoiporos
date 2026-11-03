@@ -49,3 +49,11 @@ for(const id of ['id_departure_at','id_return_at','id_route'])document.getElemen
 // Do not recreate intentionally excluded nights on edit or after validation errors.
 const hasExistingDates=Array.from(document.querySelectorAll('#stays-rows input[type=date]')).some(i=>i.value);
 if(!hasExistingDates && !document.querySelector('.errorlist'))document.getElementById('generate-nights').click();
+
+function refreshRouteMileage(){
+ const route=routes.find(r=>String(r.id)===routeSelect.value);
+ document.querySelectorAll('#expenses-rows [name$="-estimated_distance_km"]').forEach(input=>{input.value=route?.distance_km||'';});
+}
+routeSelect.addEventListener('change',refreshRouteMileage);
+new MutationObserver(refreshRouteMileage).observe(document.getElementById('expenses-rows'),{childList:true});
+refreshRouteMileage();

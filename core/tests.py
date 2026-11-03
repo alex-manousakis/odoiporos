@@ -111,7 +111,8 @@ class TravelCostEntryTests(TravelEntryTests):
 
     def test_save_costs_and_stay(self):
         self.assertEqual(self.client.get(self.url).status_code,200)
-        self.assertEqual(self.client.post(self.url,self.payload).status_code,302)
+        response=self.client.post(self.url,self.payload)
+        self.assertEqual(response.status_code,302, response.context['expenses'].errors if response.status_code==200 else '')
         self.assertEqual(self.travel.expenses.get().estimated_amount,Decimal('120.50'))
         self.assertEqual(self.travel.overnights.get().city,'B')
         self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,200)
@@ -599,3 +600,43 @@ class AccommodationRateManagementTests(TestCase):
         self.client.force_login(reader)
         self.assertEqual(self.client.get('/accommodation-rates/').status_code,200)
         self.assertEqual(self.client.post('/accommodation-rates/new/',self.data).status_code,403)
+
+
+class RouteMileageTests(TravelCostEntryTests):
+    def test_mileage_uses_route_distance_without_employee_input(self):
+        from .models import TransportMode
+        self.route.distance_km=Decimal('450.50');self.route.save()
+        car=TransportMode.objects.create(name='Car',code='CAR',has_mileage_cost=True)
+        payload={**self.payload,'expenses-0-kind':'mileage','expenses-0-transport':str(car.pk),'expenses-0-estimated_amount':''}
+        self.assertEqual(self.client.post(self.url,payload).status_code,302)
+        self.assertEqual(self.travel.expenses.get().estimated_distance_km,Decimal('450.50'))
+
+    def test_posted_mileage_cannot_override_route_distance(self):
+        from .models import TransportMode
+        self.route.distance_km=Decimal('450.50');self.route.save()
+        car=TransportMode.objects.create(name='Car',code='CAR',has_mileage_cost=True)
+        payload={**self.payload,'expenses-0-kind':'mileage','expenses-0-transport':str(car.pk),'expenses-0-estimated_amount':'','expenses-0-estimated_distance_km':'9999'}
+        self.assertEqual(self.client.post(self.url,payload).status_code,302)
+        self.assertEqual(self.travel.expenses.get().estimated_distance_km,Decimal('450.50'))
+
+
+class AutomaticEstimateTests(EstimateCalculationTests):
+    def test_save_runs_calculation_without_button(self):
+        from .models import CalculationSnapshot
+        self.client.force_login(self.user)
+        payload={'employee':self.employee.pk,'route':self.route.pk,'departure_at':'2026-11-03','return_at':'2026-11-05','work_starts_at':'2026-11-03','work_ends_at':'2026-11-05','purpose':'Updated'}
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(self.travel.calculations.count(),1)
+        self.assertEqual(self.travel.calculations.get().total,Decimal('410'))
+
+    def test_missing_rate_preserves_saved_changes_and_warns(self):
+        self.rate.delete()
+        self.client.force_login(self.user)
+        payload={'employee':self.employee.pk,'route':self.route.pk,'departure_at':'2026-11-03','return_at':'2026-11-05','work_starts_at':'2026-11-03','work_ends_at':'2026-11-05','purpose':'Saved despite missing rate'}
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload,follow=True)
+        self.assertEqual(response.status_code,200)
+        self.travel.refresh_from_db()
+        self.assertEqual(self.travel.purpose,'Saved despite missing rate')
+        self.assertFalse(self.travel.calculations.exists())
+        self.assertContains(response,'estimate could not be updated')

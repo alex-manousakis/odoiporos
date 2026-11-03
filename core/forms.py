@@ -45,8 +45,12 @@ class ExpenseForm(forms.ModelForm):
         fields=['kind','transport','description','estimated_amount','estimated_transfer_cost','estimated_distance_km']
         labels={'kind':'Είδος','transport':'Μέσο μετακίνησης','description':'Περιγραφή','estimated_amount':'Εκτιμώμενο ποσό (€)','estimated_distance_km':'Χιλιόμετρα ΙΧ'}
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,travel=None,**kwargs):
+        self.travel=travel
         super().__init__(*args,**kwargs)
+        self.fields["estimated_distance_km"].disabled=True
+        self.fields["estimated_distance_km"].initial=travel.route.distance_km if travel and travel.route_id else None
+        self.fields["estimated_distance_km"].help_text="Distance from the selected route, including return."
         self.fields['estimated_transfer_cost'].label='Μετρό / ταξί από και προς αεροδρόμιο (€)'
         self.fields['kind'].choices=[('', '---------'),('ticket','Εισιτήριο'),('mileage','Χιλιομετρική αποζημίωση'),('other','Λοιπά έξοδα')]
         self.fields['transport'].queryset=m.TransportMode.objects.filter(is_active=True).order_by('name')
@@ -68,15 +72,17 @@ class ExpenseForm(forms.ModelForm):
         if kind=='mileage':
             if not transport or not transport.has_mileage_cost:
                 self.add_error('transport','Επιλέξτε μέσο με χιλιομετρική αποζημίωση.')
-            if not data.get('estimated_distance_km'):
-                self.add_error('estimated_distance_km','Συμπληρώστε θετικά χιλιόμετρα.')
+            route=self.travel.route if self.travel and self.travel.route_id else None
+            if not route or route.distance_km<=0:
+                self.add_error('transport','The selected route must have a positive distance for mileage reimbursement.')
+            else:
+                data['estimated_distance_km']=route.distance_km
             if data.get('estimated_amount') is not None:
                 self.add_error('estimated_amount','Το ποσό χιλιομετρικής αποζημίωσης θα υπολογιστεί από την τιμή ανά χιλιόμετρο.')
         elif kind:
             if data.get('estimated_amount') is None:
                 self.add_error('estimated_amount','Συμπληρώστε το εκτιμώμενο ποσό.')
-            if data.get('estimated_distance_km') is not None:
-                self.add_error('estimated_distance_km','Τα χιλιόμετρα συμπληρώνονται μόνο για χιλιομετρική αποζημίωση.')
+            data['estimated_distance_km']=None
             if kind=='ticket' and (not transport or not transport.has_ticket_cost):
                 self.add_error('transport','Επιλέξτε μέσο με κόστος εισιτηρίου.')
         return data
@@ -127,5 +133,19 @@ class OvernightFormSet(forms.BaseInlineFormSet):
                 dates.append(day)
 
 
-ExpenseFormSet=forms.inlineformset_factory(m.Travel,m.TravelExpense,form=ExpenseForm,extra=2,can_delete=True)
+class ExpenseInlineFormSet(forms.BaseInlineFormSet):
+    def get_form_kwargs(self,index):
+        kwargs=super().get_form_kwargs(index)
+        kwargs['travel']=self.instance
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):return
+        mileage=[f for f in self.forms if f.cleaned_data and not f.cleaned_data.get('DELETE') and f.cleaned_data.get('kind')=='mileage' and not f.instance.is_cancelled]
+        if len(mileage)>1:
+            raise forms.ValidationError('Only one mileage entry is allowed: the route distance already includes the return.')
+
+
+ExpenseFormSet=forms.inlineformset_factory(m.Travel,m.TravelExpense,form=ExpenseForm,formset=ExpenseInlineFormSet,extra=2,can_delete=True)
 StayFormSet=forms.inlineformset_factory(m.Travel,m.OvernightStay,form=OvernightForm,formset=OvernightFormSet,extra=2,can_delete=True)

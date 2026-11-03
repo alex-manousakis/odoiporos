@@ -13,3 +13,6 @@ Missing/overlapping rates, missing category coverage, review-flagged routes and 
 Input amounts, rate records and relevant parameters are saved in the snapshot. Fingerprints detect later changes; old revisions are retained and shown as stale. Changing an unrelated rate may conservatively mark an estimate stale.
 
 Validation: controlled domestic/foreign cases, same-day allowance, mileage, transfer costs, hotel caps, budget adjustment, missing/overlapping rates and authorization. Historical end-to-end agreement against printed Delphi examples remains to be checked before using amounts for official approvals or payments. This implementation does not claim to validate legislation.
+
+
+Automatic calculation runs after saving travel data or cost rows. Validation failures preserve the saved input and display a warning; previous snapshots remain stale rather than being relabeled as current. Manual recalculation remains available.
