@@ -15,7 +15,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
 from .models import ApplicationParameters, ReportDefinition, ReportText, ApprovalDocument, Travel
 from .calculation import input_state, signature
 
@@ -46,15 +46,17 @@ def render_pdf(source):
     centered=ParagraphStyle('HeadingCentered',parent=style,alignment=TA_CENTER,spaceBefore=5,spaceAfter=10)
     preamble_style=ParagraphStyle('Preamble',parent=style,leftIndent=18,firstLineIndent=0,alignment=TA_JUSTIFY)
     def para(text,sty=style):return Paragraph(escape(str(text)).replace('\n','<br/>'),sty)
-    flow=[para(source['header'])]+([para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date'])] if source['protocol_number'] or source['protocol_date'] else [])+[Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['genitive'],title),para(source['signature_heading'],centered),para('Έχοντας υπόψη:')]
+    emblem=Image(str(Path(settings.BASE_DIR)/'static/reports/ethnoshmo.png'),width=38,height=38,hAlign='LEFT')
+    flow=[emblem,Spacer(1,5),para(source['header'])]+([para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date'])] if source['protocol_number'] or source['protocol_date'] else [])+[Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['approval_subject'],title),para(source['signature_heading'],centered),para('Έχοντας υπόψη:')]
     for number,text in enumerate(source['preamble'],1):flow.append(para(str(number)+'. '+text['text'],preamble_style))
-    flow.extend([para('ΑΠΟΦΑΣΙΖΟΥΜΕ',title),para('Εγκρίνουμε τη μετακίνηση: '+source['employee']['name']+' · '+source['employee']['speciality']+' · '+source['employee']['position']+' · '+source['employee']['department']+', με δικαίωμα λήψης οδοιπορικών εξόδων και ημερήσιας αποζημίωσης.'),PageBreak(),para('Η μετακίνηση αφορά: '+source['purpose'])])
+    flow.extend([para('ΑΠΟΦΑΣΙΖΟΥΜΕ',title),para(source['decision_text']),PageBreak(),para('Η μετακίνηση αφορά: '+source['purpose'])])
     headings=['Αναχώρηση / επιστροφή','Έναρξη / λήξη εργασιών','Μέσο','Τόπος','Ημέρες εκτός έδρας','Διανυκτερεύσεις']
     values=[source['departure']+'\n'+source['return'],source['work_start']+'\n'+source['work_end'],source['transport'],source['destination'],str(source['away_days']),str(source['overnights'])]
     annual_rows=[('Αριθμός ημερών μετακίνησης και με την παρούσα έγκριση:',source['annual_used']),('Αριθμός ημερών που υπολείπονται:',source['annual_remaining']),('Ανώτατο όριο επιτρεπόμενων ημερών μετακίνησης έτους:',source['annual_limit'])]
-    table_rows=[[para(x) for x in headings],[para(x) for x in values]]+[[para(label),'','','','',para(value)] for label,value in annual_rows]
+    cell_style=ParagraphStyle('TableCentered',parent=style,alignment=TA_CENTER,spaceAfter=0)
+    table_rows=[[para(x,cell_style) for x in headings],[para(x,cell_style) for x in values]]+[[para(label),'','','','',para(value)] for label,value in annual_rows]
     table=Table(table_rows,colWidths=[87,87,75,100,80,82],repeatRows=1)
-    table.setStyle(TableStyle([('SPAN',(0,2),(4,2)),('SPAN',(0,3),(4,3)),('SPAN',(0,4),(4,4)),('GRID',(0,0),(-1,-1),.5,colors.grey),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf1f5')),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5)]))
+    table.setStyle(TableStyle([('VALIGN',(0,0),(-1,1),'MIDDLE'),('SPAN',(0,2),(4,2)),('SPAN',(0,3),(4,3)),('SPAN',(0,4),(4,4)),('GRID',(0,0),(-1,-1),.5,colors.grey),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf1f5')),('VALIGN',(0,0),(-1,-1),'TOP'),('VALIGN',(0,0),(-1,1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5)]))
     flow.extend([table,Spacer(1,12),para('Η προϋπολογιζόμενη δαπάνη ποσού '+source['budget']+' ευρώ '+source['budget_text']),Spacer(1,25)])
     signature_table=Table([[para('Εσωτερική Διανομή\nΧρονολογικό Αρχείο\n'+source['employee']['department']),para(source['signature_heading']+'\n\n'+source['signatory']['name']+'\n'+source['signatory']['speciality'])]],colWidths=[255,256])
     flow.append(signature_table)
@@ -101,9 +103,18 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
     total_days=prior_days+days
     if total_days>parameters.allowedtravelsperyear:raise ValidationError('Η μετακίνηση υπερβαίνει το ετήσιο όριο ημερών.')
     employee=travel.employee
+    if not employee.gender or not employee.gender.text1.strip():
+        raise ValidationError('Συμπληρώστε το φύλο / γραμματική προσφώνηση του εργαζομένου πριν την εκτύπωση.')
+    subject=employee.gender.text1.strip()+' '+employee.name_genitive.strip()
+    parts=['Την έγκριση μετακίνησης '+subject]
+    if employee.speciality: parts.append('κλάδου '+employee.speciality.name)
+    if employee.position: parts.append(employee.position.name_genitive or employee.position.name)
+    if employee.department: parts.append('της '+(employee.department.name_genitive or employee.department.name))
+    if parameters.approval_service_genitive: parts.append(parameters.approval_service_genitive)
+    decision=' '.join(parts)+', με δικαίωμα λήψης οδοιπορικών εξόδων και ημερήσιας αποζημίωσης.'
     fmt=lambda day:day.strftime('%d/%m/%Y') if day else ''
     source={'header':parameters.document_header,'protocol_number':travel.protocol_number,'protocol_date':fmt(travel.protocol_date),'purpose':travel.purpose,
-      'employee':{'id':employee.pk,'name':employee.display_name,'genitive':employee.name_genitive,'department':str(employee.department or ''),'speciality':str(employee.speciality or ''),'position':str(employee.position or '')},
+      'decision_text':decision,'employee':{'approval_subject':subject,'gender_id':employee.gender_id,'gender_text1':employee.gender.text1,'id':employee.pk,'name':employee.display_name,'genitive':employee.name_genitive,'department':str(employee.department or ''),'speciality':str(employee.speciality or ''),'position':str(employee.position or '')},
       'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':format(estimate.document_budget,'.2f').replace('.',','),
       'departure':fmt(travel.departure_at),'return':fmt(travel.return_at),'work_start':fmt(travel.work_starts_at),'work_end':fmt(travel.work_ends_at),
       'destination':travel.route.destination,'transport':', '.join(dict.fromkeys(e.transport.name for e in travel.expenses.select_related('transport').filter(is_cancelled=False) if e.transport)),

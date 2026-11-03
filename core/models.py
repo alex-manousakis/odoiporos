@@ -43,7 +43,18 @@ class TravelReason(NamedReference):
     pass
 
 
+class Gender(ImportedModel):
+    name = models.CharField("Προσφώνηση", max_length=50)
+    text1 = models.CharField("Γενική (του / της)", max_length=50, blank=True)
+    text2 = models.CharField("Δηλών / Δηλούσα", max_length=100, blank=True)
+    text3 = models.CharField("Κάτωθι υπογεγραμμένος/η", max_length=150, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Employee(ImportedModel):
+    gender = models.ForeignKey(Gender, verbose_name="Φύλο / γραμματική προσφώνηση", on_delete=models.PROTECT, null=True, blank=True)
     # Authentication is independent of the employee register.
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     id_number = models.CharField('Αριθμός ταυτότητας', max_length=30, blank=True)
@@ -344,6 +355,7 @@ class UserAccess(models.Model):
 
 
 class ApplicationParameters(models.Model):
+    approval_service_genitive = models.CharField("Υπηρεσία στη φράση έγκρισης (γενική)", max_length=255, default='της Ε.Υ.Δ. Προγράμματος "Κρήτη"')
     document_header = models.TextField("Επικεφαλίδα εγγράφων", default='ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ\nΠΕΡΙΦΕΡΕΙΑ ΚΡΗΤΗΣ\nΕιδική Υπηρεσία Διαχείρισης\nΠρογράμματος "Κρήτη"\nΔουκός Μποφώρ 7\n71202 Ηράκλειο\nΤηλ.: 2813-404500')
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     countriescomp2 = models.CharField('Χώρες κατηγορίας 2', max_length=255, blank=True)

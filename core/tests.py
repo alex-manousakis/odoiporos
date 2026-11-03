@@ -691,6 +691,8 @@ class ApprovalPDFTests(TestCase):
         from .calculation import calculate_estimate
         from django.contrib.auth.models import Permission
         ApplicationParameters.objects.filter(pk=1).update(allowedtravelsperyear=200)
+        from .models import Gender
+        self.employee.gender=Gender.objects.create(name='Male',text1='\u03c4\u03bf\u03c5')
         self.employee.name_genitive='Test genitive';self.employee.save()
         self.travel.protocol_number='123';self.travel.protocol_date=date(2026,11,1);self.travel.purpose='Seminar';self.travel.save()
         report=ReportDefinition.objects.create(legacy_id=11,name='Preamble')
@@ -763,3 +765,22 @@ class OptionalApprovalProtocolTests(ApprovalPDFTests):
         self.travel.protocol_date=None;self.travel.save()
         document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
         self.assertEqual(document.source['protocol_number'],'123')
+
+
+class ApprovalGenderTests(ApprovalPDFTests):
+    def test_uses_gender_article_in_heading_and_decision(self):
+        from .approval_pdf import generate_approval
+        from .models import Gender
+        for article in ['\u03c4\u03bf\u03c5','\u03c4\u03b7\u03c2']:
+            with self.subTest(article=article):
+                self.employee.gender=Gender.objects.create(name=article,text1=article)
+                self.employee.save()
+                document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+                self.assertEqual(document.source['employee']['approval_subject'],article+' Test genitive')
+                self.assertIn(article+' Test genitive',document.source['decision_text'])
+
+    def test_missing_gender_requires_explicit_selection(self):
+        from .approval_pdf import generate_approval
+        from django.core.exceptions import ValidationError
+        self.employee.gender=None;self.employee.save()
+        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
