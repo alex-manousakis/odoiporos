@@ -43,17 +43,20 @@ class TravelForm(forms.ModelForm):
 class ExpenseForm(forms.ModelForm):
     class Meta:
         model=m.TravelExpense
-        fields=['kind','transport','description','estimated_amount','estimated_distance_km']
+        fields=['kind','transport','description','estimated_amount','estimated_transfer_cost','estimated_distance_km']
         labels={'kind':'Είδος','transport':'Μέσο μετακίνησης','description':'Περιγραφή','estimated_amount':'Εκτιμώμενο ποσό (€)','estimated_distance_km':'Χιλιόμετρα ΙΧ'}
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
+        self.fields['estimated_transfer_cost'].label='Μετρό / ταξί από και προς αεροδρόμιο (€)'
         self.fields['kind'].choices=[('ticket','Εισιτήριο'),('mileage','Χιλιομετρική αποζημίωση'),('other','Λοιπά έξοδα')]
         self.fields['transport'].queryset=m.TransportMode.objects.filter(is_active=True).order_by('name')
 
     def clean(self):
         data=super().clean()
         kind=data.get('kind');transport=data.get('transport')
+        if data.get('estimated_transfer_cost') is not None and (kind!='ticket' or not transport or not transport.has_ticket_cost):
+            self.add_error('estimated_transfer_cost','Το κόστος πρόσβασης συμπληρώνεται μόνο μαζί με εισιτήριο δημόσιου μέσου.')
         if kind=='mileage':
             if not transport or not transport.has_mileage_cost:
                 self.add_error('transport','Επιλέξτε μέσο με χιλιομετρική αποζημίωση.')

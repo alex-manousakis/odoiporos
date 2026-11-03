@@ -210,6 +210,7 @@ class TravelExpense(ImportedModel):
     transport = models.ForeignKey(TransportMode, on_delete=models.PROTECT, null=True, blank=True)
     description = models.CharField(max_length=200, blank=True)
     estimated_amount = money(null=True, blank=True)
+    estimated_transfer_cost = money(null=True, blank=True)
     actual_amount = money(null=True, blank=True)
     estimated_distance_km = distance(null=True, blank=True)
     actual_distance_km = distance(null=True, blank=True)

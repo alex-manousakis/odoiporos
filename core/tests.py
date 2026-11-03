@@ -186,3 +186,13 @@ class UnifiedTravelTests(TravelCostEntryTests):
                 closer()
             Travel.objects.filter(pk=self.travel.pk).update(employee=self.other)
             self.assertEqual(self.client.get(url).status_code,404)
+
+
+class AirportTransferTests(SimpleTestCase):
+    def test_transfer_field_has_money_precision(self):
+        from .models import TravelExpense
+        field=TravelExpense._meta.get_field('estimated_transfer_cost')
+        self.assertEqual(field.decimal_places,2)
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            field.clean(Decimal('-1'),None)
