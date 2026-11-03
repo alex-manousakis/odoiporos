@@ -458,3 +458,93 @@ class EmployeeDeclarationDetailsTests(EmployeeManagementTests):
         response=self.client.get(f'/employees/{employee.pk}/edit/')
         self.assertContains(response,'AB123456')
         self.assertContains(response,'1980-02-03')
+
+
+class EstimateCalculationTests(TestCase):
+    def setUp(self):
+        from .models import ApplicationParameters,RouteStop,DailyAllowanceRate,MileageRate,AccommodationRate,TransportMode,TravelExpense,AccommodationType,OvernightStay
+        self.user=get_user_model().objects.create_user(username='estimate-user')
+        self.employee=Employee.objects.create(display_name='Estimate employee',user=self.user)
+        self.category=EmployeeCategory.objects.create(name='Cat')
+        EmployeeCategoryHistory.objects.create(employee=self.employee,category=self.category,valid_from=date(2026,1,1))
+        self.route=Route.objects.create(name='Route',origin='A',destination='B',distance_km='400')
+        self.stop=RouteStop.objects.create(route=self.route,sequence=1,city='B')
+        status=TravelStatus.objects.create(name='New',legacy_id=1)
+        self.travel=Travel.objects.create(employee=self.employee,route=self.route,status=status,applied_category=self.category,departure_at=date(2026,11,3),return_at=date(2026,11,5),work_starts_at=date(2026,11,3),work_ends_at=date(2026,11,5))
+        ApplicationParameters.objects.create(pk=1,homedistancelimit=80)
+        self.rate=DailyAllowanceRate.objects.create(category=self.category,is_abroad=False,valid_from=date(2026,1,1),valid_to=date(2026,12,31),without_overnight=20,band_1=40,band_2=30,band_3=20)
+        MileageRate.objects.create(valid_from=date(2026,1,1),valid_to=date(2026,12,31),amount_per_km=Decimal('0.2'))
+        AccommodationRate.objects.create(category=self.category,is_abroad=False,valid_from=date(2026,1,1),valid_to=date(2026,12,31),minimum_distance_km=50,standard_limit=80,expensive_city_limit=100,island_limit=90)
+        car=TransportMode.objects.create(name='Car',code='C',has_mileage_cost=True)
+        plane=TransportMode.objects.create(name='Plane',code='P',has_ticket_cost=True)
+        TravelExpense.objects.create(travel=self.travel,kind='mileage',transport=car,estimated_distance_km=400)
+        TravelExpense.objects.create(travel=self.travel,kind='ticket',transport=plane,estimated_amount=120,estimated_transfer_cost=10)
+        hotel=AccommodationType.objects.create(name='Hotel',code='H',has_cost=True)
+        OvernightStay.objects.create(travel=self.travel,date=date(2026,11,3),stop=self.stop,city='B',accommodation_type=hotel,estimated_cost=100)
+
+    def test_estimate_breakdown_and_revision(self):
+        from .calculation import calculate_estimate
+        result=calculate_estimate(self.travel.pk,self.user)
+        self.assertEqual(result.daily_domestic,Decimal('120'))
+        self.assertEqual(result.mileage,Decimal('80'))
+        self.assertEqual(result.allowed_accommodation,Decimal('80'))
+        self.assertEqual(result.total,Decimal('410'))
+        self.assertEqual(calculate_estimate(self.travel.pk,self.user).revision,2)
+
+    def test_same_day_uses_without_overnight_rate(self):
+        from .calculation import calculate_estimate
+        self.travel.overnights.all().delete()
+        self.travel.return_at=self.travel.work_ends_at=self.travel.departure_at;self.travel.save()
+        self.assertEqual(calculate_estimate(self.travel.pk,self.user).daily_domestic,Decimal('20'))
+
+    def test_missing_and_overlapping_rates_are_rejected(self):
+        from .calculation import calculate_estimate
+        from django.core.exceptions import ValidationError
+        self.rate.delete()
+        with self.assertRaises(ValidationError):calculate_estimate(self.travel.pk,self.user)
+        self.assertFalse(self.travel.calculations.exists())
+
+    def test_changed_inputs_mark_snapshot_stale(self):
+        from .calculation import calculate_estimate,input_state,signature
+        result=calculate_estimate(self.travel.pk,self.user)
+        self.travel.expenses.filter(kind='ticket').update(estimated_amount=200)
+        self.assertNotEqual(result.inputs['signature'],signature(input_state(self.travel)))
+
+    def test_wrong_user_cannot_calculate(self):
+        from .calculation import calculate_estimate
+        from django.core.exceptions import PermissionDenied
+        other=get_user_model().objects.create_user(username='outsider')
+        with self.assertRaises(PermissionDenied):calculate_estimate(self.travel.pk,other)
+
+    def test_endpoint_requires_post_and_renders_breakdown(self):
+        self.client.force_login(self.user)
+        url=f'/travels/{self.travel.pk}/calculate/'
+        self.assertEqual(self.client.get(url).status_code,405)
+        self.assertEqual(self.client.post(url).status_code,302)
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,200)
+
+
+    def test_overlapping_daily_rates_are_rejected(self):
+        from .calculation import calculate_estimate
+        from django.core.exceptions import ValidationError
+        self.rate.pk=None;self.rate.save()
+        with self.assertRaises(ValidationError):calculate_estimate(self.travel.pk,self.user)
+
+    def test_abroad_band_and_special_hotel_limit(self):
+        from .calculation import calculate_estimate
+        from .models import AccommodationRate
+        self.route.is_abroad=True;self.route.save()
+        self.stop.is_abroad=True;self.stop.compensation_band=2;self.stop.save()
+        self.rate.is_abroad=True;self.rate.save()
+        AccommodationRate.objects.filter(category=self.category).update(is_abroad=True)
+        self.travel.overnights.update(is_abroad=True,is_expensive=True)
+        result=calculate_estimate(self.travel.pk,self.user)
+        self.assertEqual(result.daily_abroad,Decimal('90'))
+        self.assertEqual(result.daily_domestic,Decimal('0'))
+        self.assertEqual(result.allowed_accommodation,Decimal('100'))
+
+    def test_budget_uplift_ceiling_and_minimum(self):
+        from .calculation import calculate_estimate
+        from .models import ApplicationParameters
+        ApplicationParameters.objects.filter(pk=1).update(percentageofbudgetinc=10,roundtotalbudget=True,budgetdownlimit=500)
+        self.assertEqual(calculate_estimate(self.travel.pk,self.user).document_budget,Decimal('500'))

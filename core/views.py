@@ -96,7 +96,10 @@ def attachment_download(request,pk):
 @login_required
 def travel_detail(request,pk):
     travel=get_object_or_404(visible_travels(request.user),pk=pk)
-    return render(request,'core/travel_detail.html',{'travel':travel,'can_edit_costs':can_edit_costs(request.user,travel)})
+    from .calculation import input_state, signature
+    calculation=travel.calculations.filter(stage='estimate').order_by('-revision').first()
+    stale=bool(calculation and calculation.inputs.get('signature')!=signature(input_state(travel)))
+    return render(request,'core/travel_detail.html',{'travel':travel,'can_edit_costs':can_edit_costs(request.user,travel),'calculation':calculation,'calculation_stale':stale})
 
 
 def can_edit_costs(user,travel):
@@ -122,3 +125,20 @@ def travel_costs(request,pk):
                 expenses.save();stays.save()
                 return redirect('core:travel_detail',pk=travel.pk)
     return render(request,'core/travel_costs.html',{'travel':travel,'expenses':expenses,'stays':stays})
+
+
+@login_required
+def travel_calculate(request,pk):
+    from django.views.decorators.http import require_POST
+    from django.http import HttpResponseNotAllowed
+    from django.core.exceptions import ValidationError
+    from django.contrib import messages
+    from .calculation import calculate_estimate
+    if request.method!='POST':return HttpResponseNotAllowed(['POST'])
+    travel=get_object_or_404(visible_travels(request.user),pk=pk)
+    try:
+        calculate_estimate(travel.pk,request.user)
+        messages.success(request,'Ο υπολογισμός εκτίμησης αποθηκεύτηκε.')
+    except ValidationError as error:
+        messages.error(request,' '.join(error.messages))
+    return redirect('core:travel_detail',pk=pk)
