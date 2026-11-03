@@ -711,7 +711,7 @@ class ApprovalPDFTests(TestCase):
         data=bytes(document.content)
         self.assertTrue(data.startswith(b'%PDF-'))
         reader=PdfReader(BytesIO(data))
-        self.assertGreaterEqual(len(reader.pages),2)
+        self.assertEqual(len(reader.pages),1)
         for page in reader.pages:
             images=page['/Resources']['/XObject'].get_object()
             self.assertGreaterEqual(sum(obj.get_object().get('/Subtype')=='/Image' for obj in images.values()),2)

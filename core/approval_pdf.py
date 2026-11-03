@@ -46,18 +46,25 @@ def render_pdf(source):
     centered=ParagraphStyle('HeadingCentered',parent=style,alignment=TA_CENTER,spaceBefore=5,spaceAfter=10)
     preamble_style=ParagraphStyle('Preamble',parent=style,leftIndent=18,firstLineIndent=0,alignment=TA_JUSTIFY)
     def para(text,sty=style):return Paragraph(escape(str(text)).replace('\n','<br/>'),sty)
-    emblem=Image(str(Path(settings.BASE_DIR)/'static/reports/ethnoshmo.png'),width=38,height=38,hAlign='LEFT')
-    flow=[emblem,Spacer(1,5),para(source['header'])]+([para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date'])] if source['protocol_number'] or source['protocol_date'] else [])+[Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['approval_subject'],title),para(source['signature_heading'],centered),para('Έχοντας υπόψη:')]
+    emblem=Image(str(Path(settings.BASE_DIR)/'static/reports/ethnoshmo.png'),width=38,height=38,hAlign='CENTER')
+    first_header_line=source['header'].splitlines()[0] if source['header'] else ''
+    header_width=min(doc.width,max(38,pdfmetrics.stringWidth(first_header_line,'ApprovalGreek',style.fontSize)))
+    emblem_block=Table([[emblem]],colWidths=[header_width],hAlign='LEFT')
+    emblem_block.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
+    decision_markup=escape(source['decision_text'])
+    for value in [source['employee']['approval_subject'],source['employee']['speciality']]:
+        if value:decision_markup=decision_markup.replace(escape(value),'<b>'+escape(value)+'</b>')
+    flow=[emblem_block,Spacer(1,5),para(source['header'])]+([para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date'])] if source['protocol_number'] or source['protocol_date'] else [])+[Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['approval_subject'],title),para(source['signature_heading'],centered),para('Έχοντας υπόψη:')]
     for number,text in enumerate(source['preamble'],1):flow.append(para(str(number)+'. '+text['text'],preamble_style))
-    flow.extend([para('ΑΠΟΦΑΣΙΖΟΥΜΕ',title),para(source['decision_text']),PageBreak(),para('Η μετακίνηση αφορά: '+source['purpose'])])
+    flow.extend([para('ΑΠΟΦΑΣΙΖΟΥΜΕ',title),Paragraph(decision_markup,style),para('Η μετακίνηση αφορά: '+source['purpose'])])
     headings=['Αναχώρηση / επιστροφή','Έναρξη / λήξη εργασιών','Μέσο','Τόπος','Ημέρες εκτός έδρας','Διανυκτερεύσεις']
     values=[source['departure']+'\n'+source['return'],source['work_start']+'\n'+source['work_end'],source['transport'],source['destination'],str(source['away_days']),str(source['overnights'])]
     annual_rows=[('Αριθμός ημερών μετακίνησης και με την παρούσα έγκριση:',source['annual_used']),('Αριθμός ημερών που υπολείπονται:',source['annual_remaining']),('Ανώτατο όριο επιτρεπόμενων ημερών μετακίνησης έτους:',source['annual_limit'])]
     cell_style=ParagraphStyle('TableCentered',parent=style,alignment=TA_CENTER,spaceAfter=0)
-    table_rows=[[para(x,cell_style) for x in headings],[para(x,cell_style) for x in values]]+[[para(label),'','','','',para(value)] for label,value in annual_rows]
+    table_rows=[[para(x,cell_style) for x in headings],[para(x,cell_style) for x in values]]+[[para(label),'','','','',para(value,cell_style)] for label,value in annual_rows]
     table=Table(table_rows,colWidths=[87,87,75,100,80,82],repeatRows=1)
     table.setStyle(TableStyle([('VALIGN',(0,0),(-1,1),'MIDDLE'),('SPAN',(0,2),(4,2)),('SPAN',(0,3),(4,3)),('SPAN',(0,4),(4,4)),('GRID',(0,0),(-1,-1),.5,colors.grey),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf1f5')),('VALIGN',(0,0),(-1,-1),'TOP'),('VALIGN',(0,0),(-1,1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5)]))
-    flow.extend([table,Spacer(1,12),para('Η προϋπολογιζόμενη δαπάνη ποσού '+source['budget']+' ευρώ '+source['budget_text']),Spacer(1,25)])
+    flow.extend([table,Spacer(1,12),Paragraph('<b>Η προϋπολογιζόμενη δαπάνη</b> ποσού <b>'+escape(source['budget'])+'</b> ευρώ '+escape(source['budget_text']).replace('\n','<br/>'),style),Spacer(1,25)])
     signature_table=Table([[para('Εσωτερική Διανομή\nΧρονολογικό Αρχείο\n'+source['employee']['department']),para(source['signature_heading']+'\n\n'+source['signatory']['name']+'\n'+source['signatory']['speciality'])]],colWidths=[255,256])
     flow.append(signature_table)
     def footer(canvas,document):
