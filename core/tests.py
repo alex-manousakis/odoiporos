@@ -548,3 +548,54 @@ class EstimateCalculationTests(TestCase):
         from .models import ApplicationParameters
         ApplicationParameters.objects.filter(pk=1).update(percentageofbudgetinc=10,roundtotalbudget=True,budgetdownlimit=500)
         self.assertEqual(calculate_estimate(self.travel.pk,self.user).document_budget,Decimal('500'))
+
+
+class AccommodationRateManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='hotel-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.category=EmployeeCategory.objects.create(name='Hotel category')
+        self.data={'category':self.category.pk,'valid_from':'2026-01-01','valid_to':'2026-12-31','minimum_distance_km':'50','standard_limit':'80','expensive_city_limit':'100','island_limit':'90'}
+
+    def test_create_and_list(self):
+        from .models import AccommodationRate
+        self.assertEqual(self.client.post('/accommodation-rates/new/',self.data).status_code,302)
+        self.assertEqual(AccommodationRate.objects.get().standard_limit,Decimal('80'))
+        self.assertEqual(self.client.get('/accommodation-rates/').status_code,200)
+        rate=AccommodationRate.objects.get()
+        self.assertEqual(self.client.get(f'/accommodation-rates/{rate.pk}/edit/').status_code,200)
+
+    def test_overlap_rejected_including_shared_boundary(self):
+        from .models import AccommodationRate
+        self.client.post('/accommodation-rates/new/',self.data)
+        response=self.client.post('/accommodation-rates/new/',{**self.data,'valid_from':'2026-12-31','valid_to':'2027-12-31'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(AccommodationRate.objects.count(),1)
+
+    def test_adjacent_period_and_abroad_are_allowed(self):
+        from .models import AccommodationRate
+        self.client.post('/accommodation-rates/new/',self.data)
+        self.assertEqual(self.client.post('/accommodation-rates/new/',{**self.data,'valid_from':'2027-01-01','valid_to':'2027-12-31'}).status_code,302)
+        self.assertEqual(self.client.post('/accommodation-rates/new/',{**self.data,'is_abroad':'on'}).status_code,302)
+        self.assertEqual(AccommodationRate.objects.count(),3)
+
+    def test_invalid_dates_and_negative_amounts_rejected(self):
+        from .models import AccommodationRate
+        response=self.client.post('/accommodation-rates/new/',{**self.data,'valid_to':'2025-12-31','standard_limit':'-1'})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(AccommodationRate.objects.exists())
+
+    def test_existing_period_can_be_edited_without_self_overlap(self):
+        from .models import AccommodationRate
+        self.client.post('/accommodation-rates/new/',self.data)
+        rate=AccommodationRate.objects.get()
+        self.assertEqual(self.client.post(f'/accommodation-rates/{rate.pk}/edit/',{**self.data,'standard_limit':'85'}).status_code,302)
+        rate.refresh_from_db();self.assertEqual(rate.standard_limit,Decimal('85'))
+
+    def test_read_only_permission_cannot_create_or_edit(self):
+        from django.contrib.auth.models import Permission
+        reader=get_user_model().objects.create_user(username='hotel-reader')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_accommodationrate'))
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get('/accommodation-rates/').status_code,200)
+        self.assertEqual(self.client.post('/accommodation-rates/new/',self.data).status_code,403)

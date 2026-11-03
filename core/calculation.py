@@ -18,8 +18,22 @@ def rounded(value):
 
 def unique_rate(model,**filters):
     rows=list(model.objects.filter(**filters)[:2])
-    if len(rows)!=1:
-        raise ValidationError('Δεν βρέθηκε μοναδική τιμή για '+model._meta.model_name+'. Ελέγξτε ημερομηνίες ισχύος και επικαλύψεις.')
+    labels={'accommodationrate':'Έξοδα διανυκτέρευσης','dailyallowancerate':'Ημερήσια αποζημίωση','mileagerate':'Χιλιομετρική αποζημίωση'}
+    criteria=[]
+    if 'category_id' in filters:
+        from .models import EmployeeCategory
+        category=EmployeeCategory.objects.filter(pk=filters['category_id']).first()
+        criteria.append('κατηγορία '+(category.name if category else str(filters['category_id'])))
+    if 'is_abroad' in filters:
+        criteria.append('εξωτερικό' if filters['is_abroad'] else 'Ελλάδα')
+    start=filters.get('valid_from__lte');end=filters.get('valid_to__gte')
+    if start:
+        criteria.append(str(start) if start==end else str(start)+' έως '+str(end))
+    description=labels.get(model._meta.model_name,model._meta.model_name)+': '+', '.join(criteria)
+    if not rows:
+        raise ValidationError('Δεν βρέθηκε ισχύουσα τιμή. '+description+'. Συμπληρώστε τιμή που καλύπτει τις ημερομηνίες της μετακίνησης.')
+    if len(rows)>1:
+        raise ValidationError('Βρέθηκαν επικαλυπτόμενες τιμές. '+description+'. Ελέγξτε τα διαστήματα ισχύος.')
     return rows[0]
 
 
