@@ -40,24 +40,40 @@ def fonts():
 def render_pdf(source):
     fonts()
     stream=BytesIO()
-    doc=SimpleDocTemplate(stream,pagesize=A4,rightMargin=42,leftMargin=42,topMargin=35,bottomMargin=55,title='ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',author=source['signatory']['name'])
+    doc=SimpleDocTemplate(stream,pagesize=A4,rightMargin=42,leftMargin=42,topMargin=35,bottomMargin=85,title='ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',author=source['signatory']['name'])
     style=ParagraphStyle('Body',fontName='ApprovalGreek',fontSize=9,leading=12,spaceAfter=7)
     title=ParagraphStyle('Title',parent=style,fontName='ApprovalGreekBold',fontSize=12,leading=16,alignment=TA_CENTER,spaceAfter=12)
+    centered=ParagraphStyle('HeadingCentered',parent=style,alignment=TA_CENTER,spaceBefore=5,spaceAfter=10)
+    preamble_style=ParagraphStyle('Preamble',parent=style,leftIndent=18,firstLineIndent=0,alignment=TA_JUSTIFY)
     def para(text,sty=style):return Paragraph(escape(str(text)).replace('\n','<br/>'),sty)
-    flow=[para(source['header']),para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date']),Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['genitive'],title),para(source['signature_heading']),para('Έχοντας υπόψη:')]
-    for number,text in enumerate(source['preamble'],1):flow.append(para(str(number)+'. '+text['text']))
+    flow=[para(source['header'])]+([para('Αρ. πρωτ.: '+source['protocol_number']+' · '+source['protocol_date'])] if source['protocol_number'] or source['protocol_date'] else [])+[Spacer(1,10),para('ΑΠΟΦΑΣΗ ΕΓΚΡΙΣΗΣ ΜΕΤΑΚΙΝΗΣΗΣ',title),para(source['employee']['genitive'],title),para(source['signature_heading'],centered),para('Έχοντας υπόψη:')]
+    for number,text in enumerate(source['preamble'],1):flow.append(para(str(number)+'. '+text['text'],preamble_style))
     flow.extend([para('ΑΠΟΦΑΣΙΖΟΥΜΕ',title),para('Εγκρίνουμε τη μετακίνηση: '+source['employee']['name']+' · '+source['employee']['speciality']+' · '+source['employee']['position']+' · '+source['employee']['department']+', με δικαίωμα λήψης οδοιπορικών εξόδων και ημερήσιας αποζημίωσης.'),PageBreak(),para('Η μετακίνηση αφορά: '+source['purpose'])])
     headings=['Αναχώρηση / επιστροφή','Έναρξη / λήξη εργασιών','Μέσο','Τόπος','Ημέρες εκτός έδρας','Διανυκτερεύσεις']
-    values=[source['departure']+' / '+source['return'],source['work_start']+' / '+source['work_end'],source['transport'],source['destination'],str(source['away_days']),str(source['overnights'])]
-    table=Table([[para(x) for x in headings],[para(x) for x in values]],colWidths=[87,87,75,100,80,82],repeatRows=1)
-    table.setStyle(TableStyle([('GRID',(0,0),(-1,-1),.5,colors.grey),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf1f5')),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5)]))
-    flow.extend([table,Spacer(1,18),para('Αριθμός ημερών μετακίνησης και με την παρούσα έγκριση: '+str(source['annual_used'])),para('Αριθμός ημερών που υπολείπονται: '+str(source['annual_remaining'])),para('Ανώτατο όριο επιτρεπόμενων ημερών μετακίνησης έτους: '+str(source['annual_limit'])),Spacer(1,12),para('Η προϋπολογιζόμενη δαπάνη ποσού '+source['budget']+' ευρώ '+source['budget_text']),Spacer(1,25)])
+    values=[source['departure']+'\n'+source['return'],source['work_start']+'\n'+source['work_end'],source['transport'],source['destination'],str(source['away_days']),str(source['overnights'])]
+    annual_rows=[('Αριθμός ημερών μετακίνησης και με την παρούσα έγκριση:',source['annual_used']),('Αριθμός ημερών που υπολείπονται:',source['annual_remaining']),('Ανώτατο όριο επιτρεπόμενων ημερών μετακίνησης έτους:',source['annual_limit'])]
+    table_rows=[[para(x) for x in headings],[para(x) for x in values]]+[[para(label),'','','','',para(value)] for label,value in annual_rows]
+    table=Table(table_rows,colWidths=[87,87,75,100,80,82],repeatRows=1)
+    table.setStyle(TableStyle([('SPAN',(0,2),(4,2)),('SPAN',(0,3),(4,3)),('SPAN',(0,4),(4,4)),('GRID',(0,0),(-1,-1),.5,colors.grey),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf1f5')),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5)]))
+    flow.extend([table,Spacer(1,12),para('Η προϋπολογιζόμενη δαπάνη ποσού '+source['budget']+' ευρώ '+source['budget_text']),Spacer(1,25)])
     signature_table=Table([[para('Εσωτερική Διανομή\nΧρονολογικό Αρχείο\n'+source['employee']['department']),para(source['signature_heading']+'\n\n'+source['signatory']['name']+'\n'+source['signatory']['speciality'])]],colWidths=[255,256])
     flow.append(signature_table)
     def footer(canvas,document):
-        canvas.saveState();canvas.setFont('ApprovalGreek',7)
-        canvas.drawString(42,30,'Ειδική Υπηρεσία Διαχείρισης Προγράμματος "Κρήτη"')
-        canvas.drawRightString(A4[0]-42,30,'Σελίδα '+str(document.page));canvas.restoreState()
+        from reportlab.lib.utils import ImageReader
+        canvas.saveState()
+        logo_dir=Path(settings.BASE_DIR)/'static'/'reports'
+        for name,x,max_width in [('europe.jpg',42,57),('espa-2021-2027.jpg',A4[0]-42-66,66)]:
+            image=ImageReader(str(logo_dir/name))
+            width,height=image.getSize()
+            scale=min(max_width/width,40/height)
+            canvas.drawImage(image,x,24,width=width*scale,height=height*scale,mask='auto')
+        canvas.setFont('ApprovalGreek',6.5)
+        canvas.drawString(42,14,'Ευρωπαϊκή Ένωση / ΕΤΠΑ')
+        canvas.drawCentredString(A4[0]/2,42,'Ειδική Υπηρεσία Διαχείρισης')
+        canvas.drawCentredString(A4[0]/2,32,'Προγράμματος "Κρήτη"')
+        canvas.drawCentredString(A4[0]/2,22,'Δουκός Μποφώρ 7 – 71202 Ηράκλειο')
+        canvas.drawRightString(A4[0]-42,10,'Σελίδα '+str(document.page))
+        canvas.restoreState()
     doc.build(flow,onFirstPage=footer,onLaterPages=footer)
     return stream.getvalue()
 
@@ -74,7 +90,7 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
         raise ValidationError('Απαιτείται ενημερωμένη εκτίμηση. Αποθηκεύστε ή υπολογίστε ξανά τη μετακίνηση.')
     parameters=ApplicationParameters.objects.filter(pk=1).first()
     if not parameters or parameters.allowedtravelsperyear is None:raise ValidationError('Συμπληρώστε το ετήσιο όριο ημερών στις παραμέτρους.')
-    if not travel.protocol_number or not travel.protocol_date or not travel.purpose:raise ValidationError('Συμπληρώστε αριθμό/ημερομηνία πρωτοκόλλου και σκοπό μετακίνησης.')
+    if not travel.purpose:raise ValidationError('Please fill in the travel purpose.')
     if not travel.employee.name_genitive:raise ValidationError('Συμπληρώστε το ονοματεπώνυμο εργαζομένου σε γενική.')
     historical=travel.departure_at<=date(2023,12,18)
     preamble_id,budget_id=(1,2) if historical else (11,12)
@@ -85,7 +101,7 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
     total_days=prior_days+days
     if total_days>parameters.allowedtravelsperyear:raise ValidationError('Η μετακίνηση υπερβαίνει το ετήσιο όριο ημερών.')
     employee=travel.employee
-    fmt=lambda day:day.strftime('%d/%m/%Y')
+    fmt=lambda day:day.strftime('%d/%m/%Y') if day else ''
     source={'header':parameters.document_header,'protocol_number':travel.protocol_number,'protocol_date':fmt(travel.protocol_date),'purpose':travel.purpose,
       'employee':{'id':employee.pk,'name':employee.display_name,'genitive':employee.name_genitive,'department':str(employee.department or ''),'speciality':str(employee.speciality or ''),'position':str(employee.position or '')},
       'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':format(estimate.document_budget,'.2f').replace('.',','),

@@ -710,6 +710,9 @@ class ApprovalPDFTests(TestCase):
         self.assertTrue(data.startswith(b'%PDF-'))
         reader=PdfReader(BytesIO(data))
         self.assertGreaterEqual(len(reader.pages),2)
+        for page in reader.pages:
+            images=page['/Resources']['/XObject'].get_object()
+            self.assertGreaterEqual(sum(obj.get_object().get('/Subtype')=='/Image' for obj in images.values()),2)
         text=' '.join(page.extract_text() for page in reader.pages)
         self.assertIn('First legal paragraph & plain text',text)
         self.assertIn('Funding paragraph',text)
@@ -745,3 +748,18 @@ class ApprovalPDFTests(TestCase):
         response=self.client.post(url,{'signatory':self.signer.pk,'heading':'Head','prior_days':5})
         self.assertEqual(response.status_code,302)
         self.assertEqual(self.travel.approval_documents.count(),1)
+
+
+class OptionalApprovalProtocolTests(ApprovalPDFTests):
+    def test_print_without_protocol(self):
+        from .approval_pdf import generate_approval
+        self.travel.protocol_number='';self.travel.protocol_date=None;self.travel.save()
+        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        self.assertTrue(bytes(document.content).startswith(b'%PDF-'))
+        self.assertEqual(document.source['protocol_date'],'')
+
+    def test_print_with_only_protocol_number(self):
+        from .approval_pdf import generate_approval
+        self.travel.protocol_date=None;self.travel.save()
+        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        self.assertEqual(document.source['protocol_number'],'123')
