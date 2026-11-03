@@ -445,3 +445,16 @@ class EmployeeManagementTests(TestCase):
         self.assertEqual(self.client.post(f'/employees/{employee.pk}/edit/',data).status_code,302)
         employee.refresh_from_db()
         self.assertIsNone(employee.user_id)
+
+
+class EmployeeDeclarationDetailsTests(EmployeeManagementTests):
+    def test_declaration_details_round_trip(self):
+        data={**self.data,'id_number':'AB123456','tax_number':'001234567','father_name':'Father','mother_name':'Mother','birth_place':'City','birth_date':'1980-02-03','phone':'2101234567','city':'Town','address':'Street','address_number':'12A','postal_code':'00100','driving_license':'LICENSE-123','car_brand':'Brand','iban':'GR00123','email':'employee@example.com'}
+        self.assertEqual(self.client.post('/employees/new/',data).status_code,302)
+        employee=Employee.objects.get()
+        self.assertEqual(employee.tax_number,'001234567')
+        self.assertEqual(employee.birth_date,date(1980,2,3))
+        self.assertEqual(employee.driving_license,'LICENSE-123')
+        response=self.client.get(f'/employees/{employee.pk}/edit/')
+        self.assertContains(response,'AB123456')
+        self.assertContains(response,'1980-02-03')

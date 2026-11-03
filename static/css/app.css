@@ -9,3 +9,7 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 .stay-table{min-width:750px}.stay-table th{background:#e4edf6;font-size:13px}.stay-table td{padding:9px;vertical-align:top}.stay-table input:disabled{background:#edf1f5;color:#7c8996;cursor:not-allowed}.stay-table input[type=date]{min-width:145px}.stay-table select{min-width:160px}
 
 .route-stops{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.route-stops fieldset{min-width:0}.route-stops legend{font-weight:600}
+
+/* Employee details: two compact columns, stacked on phones. */
+.employee-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;max-width:1040px}.employee-fields .field{min-width:0;margin-bottom:4px}
+@media(max-width:700px){.employee-fields{grid-template-columns:minmax(0,1fr)}}
