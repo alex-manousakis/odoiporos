@@ -370,7 +370,7 @@ class ApplicationParametersTests(TestCase):
         user=get_user_model().objects.create_superuser(username='params-admin',password='Test-Password-123')
         self.client.force_login(user)
         self.assertEqual(self.client.get('/parameters/').status_code,200)
-        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5'})
+        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5','document_header':'Organization header'})
         self.assertEqual(response.status_code,302)
         self.assertEqual(ApplicationParameters.objects.get(pk=1).countriescomp2,'Group two')
 
@@ -640,3 +640,108 @@ class AutomaticEstimateTests(EstimateCalculationTests):
         self.assertEqual(self.travel.purpose,'Saved despite missing rate')
         self.assertFalse(self.travel.calculations.exists())
         self.assertContains(response,'estimate could not be updated')
+
+
+class ReportTextManagementTests(TestCase):
+    def setUp(self):
+        from .models import ReportDefinition,ReportText
+        self.admin=get_user_model().objects.create_superuser(username='report-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.report=ReportDefinition.objects.create(name='Approval preamble',legacy_id=1)
+        self.row=ReportText.objects.create(report=self.report,sort_order=1,text='Original')
+        self.data={'report':self.report.pk,'texts-TOTAL_FORMS':'2','texts-INITIAL_FORMS':'1','texts-0-id':self.row.pk,'texts-0-sort_order':'2','texts-0-text':'Updated','texts-1-sort_order':'1','texts-1-text':'New first paragraph'}
+
+    def test_add_edit_and_order(self):
+        self.assertEqual(self.client.get('/report-texts/').status_code,200)
+        self.assertEqual(self.client.post('/report-texts/',self.data).status_code,302)
+        self.assertEqual(list(self.report.texts.values_list('text',flat=True)),['New first paragraph','Updated'])
+
+    def test_delete_permission_applied(self):
+        self.assertEqual(self.client.post('/report-texts/',{**self.data,'texts-0-DELETE':'on'}).status_code,302)
+        self.assertFalse(self.report.texts.filter(pk=self.row.pk).exists())
+
+    def test_no_permission_denied(self):
+        self.client.force_login(get_user_model().objects.create_user(username='report-denied'))
+        self.assertEqual(self.client.get('/report-texts/').status_code,403)
+        self.assertEqual(self.client.post('/report-texts/',self.data).status_code,403)
+
+    def test_read_only_user_cannot_forge_changes(self):
+        from django.contrib.auth.models import Permission
+        reader=get_user_model().objects.create_user(username='report-reader')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_reporttext'))
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get('/report-texts/').status_code,200)
+        self.assertEqual(self.client.post('/report-texts/',self.data).status_code,403)
+        self.row.refresh_from_db();self.assertEqual(self.row.text,'Original')
+
+    def test_change_only_user_cannot_delete_or_add(self):
+        from django.contrib.auth.models import Permission
+        editor=get_user_model().objects.create_user(username='report-editor')
+        editor.user_permissions.add(*Permission.objects.filter(content_type__app_label='core',codename__in=['view_reporttext','change_reporttext']))
+        self.client.force_login(editor)
+        self.assertEqual(self.client.post('/report-texts/',{**self.data,'texts-0-DELETE':'on'}).status_code,302)
+        self.row.refresh_from_db();self.assertEqual(self.row.text,'Updated')
+        self.assertEqual(self.report.texts.count(),1)
+
+
+class ApprovalPDFTests(TestCase):
+    def setUp(self):
+        EstimateCalculationTests.setUp(self)
+        from .models import ApplicationParameters,ReportDefinition,ReportText,Signatory
+        from .calculation import calculate_estimate
+        from django.contrib.auth.models import Permission
+        ApplicationParameters.objects.filter(pk=1).update(allowedtravelsperyear=200)
+        self.employee.name_genitive='Test genitive';self.employee.save()
+        self.travel.protocol_number='123';self.travel.protocol_date=date(2026,11,1);self.travel.purpose='Seminar';self.travel.save()
+        report=ReportDefinition.objects.create(legacy_id=11,name='Preamble')
+        self.script=ReportText.objects.create(report=report,sort_order=1,text='First legal paragraph & plain text')
+        report=ReportDefinition.objects.create(legacy_id=12,name='Budget')
+        ReportText.objects.create(report=report,sort_order=1,text='Funding paragraph')
+        self.signer=Signatory.objects.create(name='Test signer',speciality='Head')
+        self.user.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='print_travel'))
+        calculate_estimate(self.travel.pk,self.user)
+
+    def test_pdf_contains_scripts_and_archives_original_bytes(self):
+        from .approval_pdf import generate_approval
+        from pypdf import PdfReader
+        from io import BytesIO
+        document=generate_approval(self.travel.pk,self.user,self.signer,'Head of service',10)
+        data=bytes(document.content)
+        self.assertTrue(data.startswith(b'%PDF-'))
+        reader=PdfReader(BytesIO(data))
+        self.assertGreaterEqual(len(reader.pages),2)
+        text=' '.join(page.extract_text() for page in reader.pages)
+        self.assertIn('First legal paragraph & plain text',text)
+        self.assertIn('Funding paragraph',text)
+        self.assertIn('\u0391\u03a0\u039f\u03a6\u0391\u03a3\u0397',text)
+        self.assertIn('410,00',text)
+        self.script.text='Changed later';self.script.save()
+        document.refresh_from_db()
+        self.assertEqual(bytes(document.content),data)
+        self.assertEqual(document.source['annual_used'],13)
+
+    def test_stale_estimate_blocks_generation(self):
+        from .approval_pdf import generate_approval
+        from django.core.exceptions import ValidationError
+        self.travel.expenses.filter(kind='ticket').update(estimated_amount=999)
+        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        self.assertFalse(self.travel.approval_documents.exists())
+
+    def test_download_scope_and_print_permission(self):
+        from .approval_pdf import generate_approval
+        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        self.client.force_login(self.user)
+        response=self.client.get(f'/approvals/{document.pk}/download/')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response['Content-Type'],'application/pdf')
+        outsider=get_user_model().objects.create_user(username='pdf-outsider')
+        self.client.force_login(outsider)
+        self.assertEqual(self.client.get(f'/approvals/{document.pk}/download/').status_code,403)
+
+    def test_form_creates_document(self):
+        self.client.force_login(self.user)
+        url=f'/travels/{self.travel.pk}/approval/'
+        self.assertEqual(self.client.get(url).status_code,200)
+        response=self.client.post(url,{'signatory':self.signer.pk,'heading':'Head','prior_days':5})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(self.travel.approval_documents.count(),1)

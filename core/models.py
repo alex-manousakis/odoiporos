@@ -208,6 +208,7 @@ class Travel(ImportedModel):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        permissions = [("print_travel", "Can print travel approval PDF")]
         constraints = [
             models.CheckConstraint(condition=models.Q(return_at__gte=models.F("departure_at")), name="travel_date_order"),
             models.CheckConstraint(condition=models.Q(work_ends_at__gte=models.F("work_starts_at")), name="travel_work_date_order"),
@@ -343,6 +344,7 @@ class UserAccess(models.Model):
 
 
 class ApplicationParameters(models.Model):
+    document_header = models.TextField("Επικεφαλίδα εγγράφων", default='ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ\nΠΕΡΙΦΕΡΕΙΑ ΚΡΗΤΗΣ\nΕιδική Υπηρεσία Διαχείρισης\nΠρογράμματος "Κρήτη"\nΔουκός Μποφώρ 7\n71202 Ηράκλειο\nΤηλ.: 2813-404500')
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     countriescomp2 = models.CharField('Χώρες κατηγορίας 2', max_length=255, blank=True)
     countriescomp3 = models.CharField('Χώρες κατηγορίας 3', max_length=255, blank=True)
@@ -373,3 +375,33 @@ class ApplicationParameters(models.Model):
     class Meta:
         verbose_name = "Παράμετροι εφαρμογής"
         constraints = [models.CheckConstraint(condition=models.Q(id=1), name="application_parameters_singleton")]
+
+
+class ReportDefinition(ImportedModel):
+    name = models.CharField("Εκτύπωση", max_length=150)
+
+    def __str__(self):
+        return self.name
+
+
+class ReportText(ImportedModel):
+    report = models.ForeignKey(ReportDefinition, on_delete=models.PROTECT, related_name="texts", verbose_name="Εκτύπωση")
+    sort_order = models.IntegerField("Σειρά εμφάνισης", null=True, blank=True)
+    text = models.TextField("Κείμενο", blank=True)
+
+    class Meta:
+        ordering = ['sort_order','pk']
+
+
+class Signatory(NamedReference):
+    speciality = models.CharField("Ιδιότητα", max_length=255, blank=True)
+
+
+class ApprovalDocument(models.Model):
+    travel = models.ForeignKey(Travel, on_delete=models.PROTECT, related_name="approval_documents")
+    calculation = models.ForeignKey(CalculationSnapshot, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    content = models.BinaryField()
+    sha256 = models.CharField(max_length=64)
+    source = models.JSONField()

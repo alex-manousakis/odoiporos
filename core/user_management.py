@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .models import Employee, Department, UserAccess
 
 
-MODULE_LABELS = {'applicationparameters': 'Παράμετροι εφαρμογής', 'travel': 'Διαχείριση μετακινήσεων', 'employee': 'Διαχείριση εργαζομένων', 'department': 'Διαχείριση μονάδων', 'route': 'Διαχείριση διαδρομών', 'routestop': 'Στάσεις διαδρομών', 'transportmode': 'Τρόποι μετακίνησης', 'accommodationtype': 'Τύποι διαμονής', 'employeecategory': 'Κατηγορίες εργαζομένων', 'employeecategoryhistory': 'Ιστορικό κατηγορίας εργαζομένου', 'speciality': 'Ειδικότητες', 'position': 'Θέσεις εργαζομένων', 'travelreason': 'Λόγοι μετακίνησης', 'travelstatus': 'Καταστάσεις μετακίνησης', 'dailyallowancerate': 'Ημερήσιες αποζημιώσεις', 'accommodationrate': 'Όρια κόστους διαμονής', 'mileagerate': 'Τιμές χιλιομετρικής αποζημίωσης', 'travelexpense': 'Δαπάνες μετακίνησης', 'overnightstay': 'Διανυκτερεύσεις', 'accommodationreceipt': 'Παραστατικά διαμονής', 'calculationsnapshot': 'Ιστορικό υπολογισμών', 'settlementperiod': 'Περίοδοι εκκαθάρισης', 'settlementitem': 'Εγγραφές εκκαθάρισης', 'travelattachment': 'Συνημμένα μετακίνησης'}
+MODULE_LABELS = {'signatory':'Υπογράφοντες','approvaldocument':'Αποθηκευμένες αποφάσεις', 'reportdefinition': 'Ομάδες εκτυπώσεων', 'reporttext': 'Κείμενα εκτυπώσεων', 'applicationparameters': 'Παράμετροι εφαρμογής', 'travel': 'Διαχείριση μετακινήσεων', 'employee': 'Διαχείριση εργαζομένων', 'department': 'Διαχείριση μονάδων', 'route': 'Διαχείριση διαδρομών', 'routestop': 'Στάσεις διαδρομών', 'transportmode': 'Τρόποι μετακίνησης', 'accommodationtype': 'Τύποι διαμονής', 'employeecategory': 'Κατηγορίες εργαζομένων', 'employeecategoryhistory': 'Ιστορικό κατηγορίας εργαζομένου', 'speciality': 'Ειδικότητες', 'position': 'Θέσεις εργαζομένων', 'travelreason': 'Λόγοι μετακίνησης', 'travelstatus': 'Καταστάσεις μετακίνησης', 'dailyallowancerate': 'Ημερήσιες αποζημιώσεις', 'accommodationrate': 'Όρια κόστους διαμονής', 'mileagerate': 'Τιμές χιλιομετρικής αποζημίωσης', 'travelexpense': 'Δαπάνες μετακίνησης', 'overnightstay': 'Διανυκτερεύσεις', 'accommodationreceipt': 'Παραστατικά διαμονής', 'calculationsnapshot': 'Ιστορικό υπολογισμών', 'settlementperiod': 'Περίοδοι εκκαθάρισης', 'settlementitem': 'Εγγραφές εκκαθάρισης', 'travelattachment': 'Συνημμένα μετακίνησης'}
 
 def editable_permissions():
     # Authentication and security administration remain superuser-only.
@@ -87,5 +87,5 @@ def user_edit(request,pk=None):
         for permission in editable_permissions():
             action=permission.codename.split('_',1)[0]
             modules.setdefault(permission.content_type.model,{'name':MODULE_LABELS.get(permission.content_type.model, permission.content_type.name),'cells':{}})['cells'][action]={'id':permission.pk,'selected':str(permission.pk) in selected}
-        rows=[{'name':r['name'],'cells':[r['cells'].get(a) for a in ['view','add','change','delete']]} for r in modules.values()]
+        rows=[{'name':r['name'],'cells':[r['cells'].get(a) for a in ['view','add','change','delete','print']]} for r in modules.values()]
     return render(request,'core/user_form.html',{'form':form,'rows':rows,'target_user':user})
