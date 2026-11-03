@@ -164,3 +164,6 @@ LOGIN_REDIRECT_URL = "core:home"
 LOGOUT_REDIRECT_URL = "login"
 
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Accommodation default imported from Delphi PARAMS; referenced by legacy ID.
+DEFAULT_ACCOMMODATION_LEGACY_ID = 5

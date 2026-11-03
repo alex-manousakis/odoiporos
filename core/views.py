@@ -34,7 +34,7 @@ def travel_edit(request,pk):
 
 def travel_editor(request,travel=None):
     from .forms import ExpenseFormSet, StayFormSet
-    from .models import Route, TravelAttachment, TransportMode
+    from .models import Route, TravelAttachment, TransportMode, AccommodationType
     from uuid import uuid4
     from pathlib import Path
     post=request.POST if request.method=='POST' else None
@@ -75,7 +75,9 @@ def travel_editor(request,travel=None):
                     raise
                 return redirect('core:travel_detail',pk=parent.pk)
     routes=[{'id':r.pk,'name':r.name,'stops':[{'id':n.pk,'city':n.city} for n in r.stops.all()]} for r in Route.objects.filter(is_active=True).prefetch_related('stops')]
-    return render(request,'core/travel_form.html',{'form':form,'travel':parent,'expenses':expenses,'stays':stays,'routes':routes,'transport_modes':list(TransportMode.objects.filter(is_active=True).values('id','has_mileage_cost','has_ticket_cost'))})
+    from django.conf import settings
+    default_stay=AccommodationType.objects.filter(legacy_id=getattr(settings,"DEFAULT_ACCOMMODATION_LEGACY_ID",None),is_active=True).first()
+    return render(request,'core/travel_form.html',{'form':form,'travel':parent,'expenses':expenses,'stays':stays,'accommodation_options':{'types':list(AccommodationType.objects.filter(is_active=True).values('id','has_cost')),'default':default_stay.pk if default_stay else None},'routes':routes,'transport_modes':list(TransportMode.objects.filter(is_active=True).values('id','has_mileage_cost','has_ticket_cost'))})
 
 
 @login_required

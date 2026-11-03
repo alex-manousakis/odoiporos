@@ -196,3 +196,39 @@ class AirportTransferTests(SimpleTestCase):
         from django.core.exceptions import ValidationError
         with self.assertRaises(ValidationError):
             field.clean(Decimal('-1'),None)
+
+
+class OvernightTypeTests(TravelCostEntryTests):
+    def test_friends_stay_clears_stale_cost(self):
+        from .models import AccommodationType
+        friends=AccommodationType.objects.create(name='Friends',code='F',has_cost=False)
+        response=self.client.post(self.url,{**self.payload,'stays-0-accommodation_type':str(friends.pk),'stays-0-estimated_cost':'80'})
+        self.assertEqual(response.status_code,302)
+        self.assertIsNone(self.travel.overnights.get().estimated_cost)
+
+    def test_hotel_requires_cost(self):
+        response=self.client.post(self.url,{**self.payload,'stays-0-estimated_cost':''})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(self.travel.overnights.exists())
+
+    def test_edit_has_dated_stay_table(self):
+        response=self.client.get(f'/travels/{self.travel.pk}/edit/')
+        self.assertContains(response,'class="stay-table"')
+        self.assertContains(response,'accommodation-data')
+
+
+class BlankExpenseEditTests(TravelCostEntryTests):
+    def test_unused_expense_rows_do_not_block_edit(self):
+        payload={**self.data,'return_at':'2026-11-05',**self.payload,'purpose':'Updated purpose',
+                 'expenses-TOTAL_FORMS':'3','expenses-1-kind':'ticket','expenses-2-kind':'ticket'}
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
+        self.assertEqual(response.status_code,302)
+        self.travel.refresh_from_db()
+        self.assertEqual(self.travel.purpose,'Updated purpose')
+        self.assertEqual(self.travel.expenses.count(),1)
+
+    def test_incomplete_real_expense_has_visible_error(self):
+        payload={**self.data,'return_at':'2026-11-05',**self.payload,'expenses-0-estimated_amount':''}
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
+        self.assertContains(response,'role="alert"')
+        self.assertFalse(self.travel.expenses.exists())

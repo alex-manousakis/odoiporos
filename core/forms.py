@@ -49,8 +49,17 @@ class ExpenseForm(forms.ModelForm):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.fields['estimated_transfer_cost'].label='Μετρό / ταξί από και προς αεροδρόμιο (€)'
-        self.fields['kind'].choices=[('ticket','Εισιτήριο'),('mileage','Χιλιομετρική αποζημίωση'),('other','Λοιπά έξοδα')]
+        self.fields['kind'].choices=[('', '---------'),('ticket','Εισιτήριο'),('mileage','Χιλιομετρική αποζημίωση'),('other','Λοιπά έξοδα')]
         self.fields['transport'].queryset=m.TransportMode.objects.filter(is_active=True).order_by('name')
+
+    def has_changed(self):
+        # Extra rows may have only the old browser-default kind='ticket'.
+        # A type choice alone is not a new expense and must not block parent edits.
+        if not self.instance.pk and self.is_bound:
+            meaningful = ['transport','description','estimated_amount','estimated_transfer_cost','estimated_distance_km']
+            if not any(self.data.get(self.add_prefix(name), '').strip() for name in meaningful):
+                return False
+        return super().has_changed()
 
     def clean(self):
         data=super().clean()
@@ -94,8 +103,9 @@ class OvernightForm(forms.ModelForm):
         day=data.get('date');stop=data.get('stop');kind=data.get('accommodation_type');cost=data.get('estimated_cost')
         if day and self.travel.departure_at and self.travel.return_at and not self.travel.departure_at <= day < self.travel.return_at:
             self.add_error('date','Η νύχτα πρέπει να είναι από την αναχώρηση έως την προηγουμένη της επιστροφής.')
-        if kind and not kind.has_cost and cost not in (None,0):
-            self.add_error('estimated_cost','Αυτός ο τύπος διαμονής δεν έχει κόστος.')
+        if kind and not kind.has_cost:
+            data['estimated_cost']=None
+            self.instance.estimated_cost=None
         if kind and kind.has_cost and cost is None:
             self.add_error('estimated_cost','Συμπληρώστε εκτιμώμενο κόστος.')
         if stop:
