@@ -15,3 +15,19 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 @media(max-width:700px){.employee-fields{grid-template-columns:minmax(0,1fr)}}
 
 .trip-tabs{display:flex;gap:4px;border-bottom:2px solid #b6c9d9;margin:18px 0}.trip-tabs button{background:#dfe8f0;color:#24445d;border-radius:6px 6px 0 0}.trip-tabs button[aria-selected=true]{background:#173b56;color:white}.trip-editor-fields{border:0;padding:0;margin:0;min-width:0}.calculation-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 18px}.calculation-fields dt,.calculation-fields dd{margin:0}.calculation-fields dd{text-align:right;background:#f1f5f8;padding:4px 8px}fieldset:disabled input,fieldset:disabled textarea,fieldset:disabled select{color:#34495b;background:#f1f4f7;opacity:1}
+
+/* Clear sidebar groups with one navigation item per row. */
+.sidebar{overflow-y:auto;gap:24px;font-family:system-ui,sans-serif}
+.sidebar .grouped-nav{display:block;margin:0;width:100%}
+.sidebar .nav-group{display:block;margin:0 0 8px;padding:0;border:0}
+.sidebar .nav-group summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;cursor:pointer;padding:13px 12px;color:#eef6fc;background:#214963;border:1px solid #365a72;border-radius:7px;font-size:15px;font-weight:600;line-height:1.4}
+.sidebar .nav-group summary::-webkit-details-marker{display:none}
+.sidebar .nav-group summary::after{content:'';display:block;flex:0 0 7px;width:7px;height:7px;border-right:2px solid #b8cfdf;border-bottom:2px solid #b8cfdf;transform:rotate(-45deg);margin-right:3px}
+.sidebar .nav-group[open] summary::after{transform:rotate(45deg)}
+.sidebar .nav-group[open] summary{background:#28536e}
+.sidebar .nav-group-links{display:flex;flex-direction:column;gap:3px;margin:5px 0 10px 10px;padding:3px 0 3px 8px;border-left:1px solid #57758b}
+.sidebar .nav-group-links a{display:block;box-sizing:border-box;width:100%;margin:0;padding:10px 9px;white-space:normal;overflow-wrap:break-word;font-size:13px;line-height:1.45;color:#d9e6ef;text-decoration:none;border:0;border-radius:5px}
+.sidebar .nav-group-links a:hover{background:#2a506b;color:white}
+.sidebar .nav-group-links a.active{background:#e6f2fa;color:#173b56;font-weight:700}
+.sidebar .nav-group summary:focus-visible,.sidebar a:focus-visible{outline:2px solid #a5dcf6;outline-offset:3px}
+.sidebar .account{padding-top:16px;border-top:1px solid #3f6078;flex-shrink:0;font-size:13px}
