@@ -232,3 +232,82 @@ class BlankExpenseEditTests(TravelCostEntryTests):
         response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
         self.assertContains(response,'role="alert"')
         self.assertFalse(self.travel.expenses.exists())
+
+
+class DepartmentAccessTests(TravelEntryTests):
+    def setUp(self):
+        super().setUp()
+        from .models import Department, UserAccess
+        from django.contrib.auth.models import Permission
+        self.department=Department.objects.create(name='Unit A')
+        self.employee.department=self.department;self.employee.save()
+        self.other.department=Department.objects.create(name='Unit B');self.other.save()
+        self.head=get_user_model().objects.create_user(username='head')
+        self.access=UserAccess.objects.create(user=self.head,scope='department')
+        self.access.departments.add(self.department)
+        self.head.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_travel'))
+        self.client.force_login(self.user)
+        self.client.post('/travels/new/',self.data)
+        self.travel=Travel.objects.get()
+        self.client.force_login(self.head)
+
+    test_requires_login=None
+    test_create_and_view_own_travel=None
+    test_employee_cannot_submit_for_someone_else=None
+    test_invalid_date_order_is_rejected=None
+    test_missing_historical_category_requires_review=None
+    test_cannot_view_another_employees_travel=None
+
+    def test_head_can_view_unit_not_other_units(self):
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,200)
+        Travel.objects.filter(pk=self.travel.pk).update(employee=self.other)
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,404)
+
+    def test_view_only_head_cannot_edit(self):
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/edit/').status_code,403)
+
+    def test_travel_permission_does_not_allow_user_management(self):
+        self.assertEqual(self.client.get('/users/').status_code,403)
+        self.assertEqual(self.client.post('/users/new/',{'username':'attacker'}).status_code,403)
+
+    def test_superuser_sees_matrix(self):
+        admin=get_user_model().objects.create_superuser(username='test-admin',password='test-password-123')
+        self.client.force_login(admin)
+        self.assertEqual(self.client.get('/users/').status_code,200)
+        self.assertEqual(self.client.get(f'/users/{self.head.pk}/edit/').status_code,200)
+
+    def test_department_creator_cannot_post_other_unit_employee(self):
+        from django.contrib.auth.models import Permission
+        self.head.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='add_travel'))
+        self.assertEqual(self.client.post('/travels/new/',{**self.data,'employee':self.other.pk}).status_code,200)
+        self.assertEqual(Travel.objects.count(),1)
+
+    def test_explicit_own_scope_limits_global_view_permission(self):
+        self.access.scope='own';self.access.save()
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/').status_code,404)
+
+
+    def test_admin_creates_department_head_with_password(self):
+        from django.contrib.auth.models import Permission
+        from .models import UserAccess
+        admin=get_user_model().objects.create_superuser(username='test-admin',password='test-password-123')
+        self.client.force_login(admin)
+        permission=Permission.objects.get(content_type__app_label='core',codename='view_travel')
+        response=self.client.post('/users/new/',{'username':'new-head','password':'Strong-test-password-456!','is_active':'on','scope':'department','departments':[self.department.pk],'permissions':[permission.pk]})
+        self.assertEqual(response.status_code,302)
+        user=get_user_model().objects.get(username='new-head')
+        self.assertTrue(user.check_password('Strong-test-password-456!'))
+        self.assertFalse(user.is_superuser)
+        self.assertEqual(UserAccess.objects.get(user=user).departments.get(),self.department)
+        self.assertTrue(user.has_perm('core.view_travel'))
+
+
+class TemplateCompilationTests(SimpleTestCase):
+    def test_all_project_templates_compile(self):
+        from pathlib import Path
+        from django.conf import settings
+        from django.template.loader import get_template
+        root=Path(settings.BASE_DIR)/'templates'
+        for path in root.rglob('*.html'):
+            with self.subTest(template=str(path.relative_to(root))):
+                get_template(path.relative_to(root).as_posix())

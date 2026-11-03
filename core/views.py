@@ -7,8 +7,9 @@ from .models import Employee, Travel, TravelStatus
 
 
 def visible_travels(user):
+    from .access import employee_scope, can_action
     qs=Travel.objects.select_related('employee','route','status')
-    return qs if user.has_perm('core.view_travel') else qs.filter(employee__user=user)
+    return qs.filter(employee__in=employee_scope(user)) if can_action(user,'view') else qs.none()
 
 
 @login_required
@@ -18,7 +19,8 @@ def home(request):
 
 @login_required
 def travel_create(request):
-    if not request.user.has_perm('core.add_travel') and not Employee.objects.filter(user=request.user,is_active=True).exists():
+    from .access import can_action
+    if not can_action(request.user,'add'):
         raise PermissionDenied
     return travel_editor(request)
 
@@ -97,7 +99,8 @@ def travel_detail(request,pk):
 
 
 def can_edit_costs(user,travel):
-    allowed=user.has_perm('core.change_travel') or (travel.employee.user_id==user.pk and travel.employee.is_active)
+    from .access import can_action, employee_scope
+    allowed=can_action(user,'change') and employee_scope(user).filter(pk=travel.employee_id).exists()
     return allowed and travel.status.legacy_id==1 and travel.approved_at is None and not travel.calculations.filter(frozen_at__isnull=False).exists()
 
 

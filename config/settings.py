@@ -167,3 +167,5 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Accommodation default imported from Delphi PARAMS; referenced by legacy ID.
 DEFAULT_ACCOMMODATION_LEGACY_ID = 5
+
+TEMPLATES[0]["OPTIONS"]["context_processors"].append("core.access.navigation")

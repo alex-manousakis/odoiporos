@@ -314,3 +314,14 @@ class TravelAttachment(models.Model):
     original_name = models.CharField(max_length=255)
     file = models.FileField(upload_to="travel_attachments/%Y/%m/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
+class UserAccess(models.Model):
+    class Scope(models.TextChoices):
+        OWN = "own", "Ίδιες μετακινήσεις"
+        DEPARTMENT = "department", "Επιλεγμένες μονάδες"
+        ALL = "all", "Όλες οι μονάδες"
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="travel_access")
+    scope = models.CharField(max_length=12, choices=Scope.choices, default=Scope.OWN)
+    departments = models.ManyToManyField(Department, blank=True)
