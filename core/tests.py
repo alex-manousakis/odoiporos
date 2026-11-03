@@ -370,7 +370,7 @@ class ApplicationParametersTests(TestCase):
         user=get_user_model().objects.create_superuser(username='params-admin',password='Test-Password-123')
         self.client.force_login(user)
         self.assertEqual(self.client.get('/parameters/').status_code,200)
-        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5','document_header':'Organization header'})
+        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5','document_header':'Organization header','approval_service_genitive':'of the service'})
         self.assertEqual(response.status_code,302)
         self.assertEqual(ApplicationParameters.objects.get(pk=1).countriescomp2,'Group two')
 
@@ -784,3 +784,36 @@ class ApprovalGenderTests(ApprovalPDFTests):
         from django.core.exceptions import ValidationError
         self.employee.gender=None;self.employee.save()
         with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+
+
+class TripTabbedWorkflowTests(TravelCostEntryTests):
+    def test_open_trip_shows_input_and_calculation_tabs(self):
+        response=self.client.get(f'/travels/{self.travel.pk}/')
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'id="trip-input-panel"')
+        self.assertContains(response,'id="trip-calculation-panel"')
+        self.assertContains(response,'id="trip-editor"')
+        self.assertFalse(response.context['read_only'])
+
+    def test_locked_trip_opens_read_only_and_rejects_post(self):
+        from django.utils import timezone
+        Travel.objects.filter(pk=self.travel.pk).update(approved_at=timezone.now())
+        url=f'/travels/{self.travel.pk}/'
+        response=self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        self.assertTrue(response.context['read_only'])
+        self.assertContains(response,'class="trip-editor-fields" disabled')
+        self.assertNotContains(response,'js/travel-form.js')
+        self.assertEqual(self.client.post(url,{'purpose':'Forged change'}).status_code,403)
+        self.travel.refresh_from_db();self.assertEqual(self.travel.purpose,'Test')
+
+    def test_view_only_user_has_read_only_form(self):
+        from .models import UserAccess
+        from django.contrib.auth.models import Permission
+        reader=get_user_model().objects.create_user(username='trip-reader')
+        UserAccess.objects.create(user=reader,scope='all')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_travel'))
+        self.client.force_login(reader)
+        response=self.client.get(f'/travels/{self.travel.pk}/')
+        self.assertTrue(response.context['read_only'])
+        self.assertEqual(self.client.post(f'/travels/{self.travel.pk}/edit/',self.data).status_code,403)

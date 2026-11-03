@@ -13,3 +13,5 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 /* Employee details: two compact columns, stacked on phones. */
 .employee-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;max-width:1040px}.employee-fields .field{min-width:0;margin-bottom:4px}
 @media(max-width:700px){.employee-fields{grid-template-columns:minmax(0,1fr)}}
+
+.trip-tabs{display:flex;gap:4px;border-bottom:2px solid #b6c9d9;margin:18px 0}.trip-tabs button{background:#dfe8f0;color:#24445d;border-radius:6px 6px 0 0}.trip-tabs button[aria-selected=true]{background:#173b56;color:white}.trip-editor-fields{border:0;padding:0;margin:0;min-width:0}.calculation-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 18px}.calculation-fields dt,.calculation-fields dd{margin:0}.calculation-fields dd{text-align:right;background:#f1f5f8;padding:4px 8px}fieldset:disabled input,fieldset:disabled textarea,fieldset:disabled select{color:#34495b;background:#f1f4f7;opacity:1}
