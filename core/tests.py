@@ -817,3 +817,74 @@ class TripTabbedWorkflowTests(TravelCostEntryTests):
         response=self.client.get(f'/travels/{self.travel.pk}/')
         self.assertTrue(response.context['read_only'])
         self.assertEqual(self.client.post(f'/travels/{self.travel.pk}/edit/',self.data).status_code,403)
+
+
+class TravelListSearchTests(TravelCostEntryTests):
+    def test_filters_and_actions(self):
+        Travel.objects.filter(pk=self.travel.pk).update(protocol_number='ABC-123',purpose='Conference')
+        response=self.client.get('/',{'protocol':'ABC','purpose':'Conference','year':'2026'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.context['page'].paginator.count,1)
+        self.assertContains(response,'selected-trip')
+        self.assertEqual(self.client.get('/',{'year':'2025'}).context['page'].paginator.count,0)
+
+    def test_invalid_filters_show_errors_and_no_results(self):
+        response=self.client.get('/',{'travel_from':'2026-12-01','travel_to':'2026-01-01'})
+        self.assertEqual(response.status_code,200)
+        self.assertTrue(response.context['search_form'].errors)
+        self.assertEqual(response.context['page'].paginator.count,0)
+
+    def test_scope_cannot_be_widened_by_employee_filter(self):
+        response=self.client.get('/',{'employee':self.other.pk})
+        self.assertTrue(response.context['search_form'].errors)
+        self.assertEqual(response.context['page'].paginator.count,0)
+
+    def test_date_range_matches_overlapping_trip(self):
+        response=self.client.get('/',{'travel_from':'2026-11-04','travel_to':'2026-11-04'})
+        self.assertEqual(response.context['page'].paginator.count,1)
+
+
+class OtherDocumentTests(ApprovalPDFTests):
+    def test_activity_document_from_list(self):
+        from io import BytesIO
+        from pypdf import PdfReader
+        self.travel.actions_description='Completed meeting and training';self.travel.save()
+        self.client.force_login(self.user)
+        url=f'/travels/{self.travel.pk}/documents/'
+        self.assertEqual(self.client.get(url).status_code,200)
+        response=self.client.post(url,{'kind':'activity','print_date':'2026-11-05'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response['Content-Type'],'application/pdf')
+        text=' '.join(p.extract_text() for p in PdfReader(BytesIO(response.content)).pages)
+        self.assertIn('Completed meeting and training',text)
+
+    def test_car_declaration(self):
+        self.employee.car_plate='ABC123';self.employee.car_brand='Brand';self.employee.driving_license='DL123';self.employee.gender.text3='Declarant';self.employee.gender.text2='Signature';self.employee.gender.save();self.employee.save()
+        self.client.force_login(self.user)
+        response=self.client.post(f'/travels/{self.travel.pk}/documents/',{'kind':'car','print_date':'2026-11-05'})
+        self.assertEqual(response['Content-Type'],'application/pdf')
+
+    def test_other_documents_permission_required(self):
+        self.client.force_login(get_user_model().objects.create_user(username='documents-outsider'))
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/documents/').status_code,403)
+
+
+    def test_friends_declaration_uses_only_relevant_nights(self):
+        from .models import AccommodationType
+        from io import BytesIO
+        from pypdf import PdfReader
+        friends=AccommodationType.objects.create(name='Friends',code='FR',has_cost=False,requires_declaration=True)
+        self.travel.overnights.update(accommodation_type=friends)
+        self.employee.gender.text2='Signature';self.employee.gender.text3='Declarant';self.employee.gender.save()
+        self.client.force_login(self.user)
+        response=self.client.post(f'/travels/{self.travel.pk}/documents/',{'kind':'friends','print_date':'2026-11-05'})
+        self.assertEqual(response['Content-Type'],'application/pdf')
+        text=' '.join(p.extract_text() for p in PdfReader(BytesIO(response.content)).pages)
+        self.assertIn('03/11/2026',text)
+
+    def test_print_permission_does_not_bypass_trip_scope(self):
+        from django.contrib.auth.models import Permission
+        outsider=get_user_model().objects.create_user(username='documents-print-outsider')
+        outsider.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='print_travel'))
+        self.client.force_login(outsider)
+        self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/documents/').status_code,404)

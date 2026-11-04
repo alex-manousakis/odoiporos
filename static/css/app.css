@@ -31,3 +31,5 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 .sidebar .nav-group-links a.active{background:#e6f2fa;color:#173b56;font-weight:700}
 .sidebar .nav-group summary:focus-visible,.sidebar a:focus-visible{outline:2px solid #a5dcf6;outline-offset:3px}
 .sidebar .account{padding-top:16px;border-top:1px solid #3f6078;flex-shrink:0;font-size:13px}
+
+.trip-list-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.trip-list-toolbar button:disabled{opacity:.45;cursor:default}.secondary{background:#526d81}.search-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px}.search-fields ul{list-style:none;padding:0}.travel-search summary{font-weight:600;cursor:pointer;margin-bottom:14px}.trip-list{min-width:1250px}.trip-list td{padding:10px;vertical-align:top}.trip-list tr.selected{background:#e2f1fb}.trip-actions a{display:block;margin-bottom:8px;white-space:nowrap}

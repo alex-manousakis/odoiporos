@@ -1,1 +1,3 @@
 document.querySelectorAll('[data-trip-url]').forEach(row=>row.addEventListener('dblclick',event=>{if(!event.target.closest('a,button,input,select'))window.location.assign(row.dataset.tripUrl);}));
+
+document.querySelectorAll('[name="selected-trip"]').forEach(input=>input.addEventListener('change',()=>{for(const row of document.querySelectorAll('.trip-list tr'))row.classList.remove('selected');input.closest('tr').classList.add('selected');for(const [id,key] of [['selected-approval','approval'],['selected-documents','documents']]){const button=document.getElementById(id);if(button){button.disabled=false;button.onclick=()=>window.location.assign(input.dataset[key]);}}}));

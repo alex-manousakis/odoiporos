@@ -14,7 +14,16 @@ def visible_travels(user):
 
 @login_required
 def home(request):
-    return render(request,'core/home.html',{'travels':visible_travels(request.user).order_by('-created_at')[:100]})
+    from .travel_search import TravelSearchForm
+    from django.core.paginator import Paginator
+    from django.db.models import OuterRef, Subquery, DecimalField
+    from .models import CalculationSnapshot
+    form=TravelSearchForm(request.GET,user=request.user)
+    latest=CalculationSnapshot.objects.filter(travel_id=OuterRef('pk'),stage='estimate').order_by('-revision')
+    qs=form.apply(visible_travels(request.user)).select_related('employee__department','reason').annotate(estimated_total=Subquery(latest.values('total')[:1],output_field=DecimalField(max_digits=14,decimal_places=2))).order_by('-departure_at','-pk')
+    page=Paginator(qs,30).get_page(request.GET.get('page'))
+    query=request.GET.copy();query.pop('page',None)
+    return render(request,'core/home.html',{'travels':page,'page':page,'search_form':form,'filter_query':query.urlencode()})
 
 
 @login_required
