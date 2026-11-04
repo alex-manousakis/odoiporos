@@ -177,3 +177,6 @@ USE_THOUSAND_SEPARATOR = True
 DECIMAL_SEPARATOR = ","
 THOUSAND_SEPARATOR = "."
 NUMBER_GROUPING = 3
+
+# Runs before CSRF/authentication so rejected requests and login/logout are audited.
+MIDDLEWARE.insert(2, 'core.audit.AuditMiddleware')

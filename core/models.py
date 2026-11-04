@@ -428,3 +428,45 @@ class ApprovalDocument(models.Model):
     content = models.BinaryField()
     sha256 = models.CharField(max_length=64)
     source = models.JSONField()
+
+
+class AuditQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError('Τα συμβάντα δραστηριότητας δεν τροποποιούνται.')
+
+    def delete(self):
+        raise ValidationError('Τα συμβάντα δραστηριότητας δεν διαγράφονται από την εφαρμογή.')
+
+    def bulk_update(self, *args, **kwargs):
+        raise ValidationError('Τα συμβάντα δραστηριότητας δεν τροποποιούνται.')
+
+
+class AuditEvent(models.Model):
+    """Append-only through application interfaces; contains identifiers, never field values."""
+    objects = AuditQuerySet.as_manager()
+    occurred_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    actor_identifier = models.CharField(max_length=150, blank=True)
+    request_id = models.UUIDField(null=True, blank=True, db_index=True)
+    action = models.CharField(max_length=32, db_index=True)
+    target_type = models.CharField(max_length=100, blank=True, db_index=True)
+    target_id = models.CharField(max_length=64, blank=True, db_index=True)
+    changed_fields = models.JSONField(default=list)
+    route = models.CharField(max_length=255, blank=True)
+    method = models.CharField(max_length=10, blank=True)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-pk']
+        default_permissions = ('view',)
+        verbose_name = 'Συμβάν δραστηριότητας'
+        verbose_name_plural = 'Δραστηριότητα'
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError('Τα συμβάντα δραστηριότητας δεν τροποποιούνται.')
+        kwargs['force_insert'] = True
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Τα συμβάντα δραστηριότητας δεν διαγράφονται από την εφαρμογή.')

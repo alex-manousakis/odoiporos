@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Δραστηριότητα</h1>
+<p>Αναγνώσεις, μεταβολές και λήψεις εγγράφων. Τα συμβάντα δεν τροποποιούνται από την εφαρμογή. Οι αναγνώσεις περιλαμβάνουν και εγγραφές που φόρτωσε εσωτερικά ο διακομιστής.</p>
+<form method="get"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,220px));gap:12px">{% for field in form %}<div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</div><p><button type="submit">Αναζήτηση</button></p></form>
+<div style="overflow:auto"><table><thead><tr><th>Ημερομηνία / ώρα</th><th>Χρήστης</th><th>Ενέργεια</th><th>Τύπος / κωδικός</th><th>Πεδία μεταβολής</th><th>Σελίδα</th><th>HTTP</th><th>Συσχέτιση αιτήματος</th></tr></thead><tbody>
+{% for event in page %}<tr><td>{{ event.occurred_at|date:'d/m/Y H:i:s' }}</td><td>{{ event.actor_identifier|default:'Σύστημα / ανώνυμος' }}</td><td>{{ event.action_label }}</td><td>{{ event.target_type }} #{{ event.target_id }}</td><td>{{ event.changed_fields|join:', ' }}</td><td>{{ event.route }}</td><td>{{ event.status_code|default_if_none:'' }}</td><td>{{ event.request_id|default_if_none:'' }}</td></tr>{% empty %}<tr><td colspan="8">Δεν βρέθηκαν συμβάντα.</td></tr>{% endfor %}</tbody></table></div>
+<p>{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Προηγούμενη</a>{% endif %} {{ page.number }} / {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Επόμενη</a>{% endif %}</p>
+{% endblock %}

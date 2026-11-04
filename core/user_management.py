@@ -13,7 +13,7 @@ MODULE_LABELS = {'gender':'Γραμματικές προσφωνήσεις φύ�
 
 def editable_permissions():
     # Authentication and security administration remain superuser-only.
-    return Permission.objects.filter(content_type__app_label='core').exclude(content_type__model='useraccess').select_related('content_type').order_by('content_type__model','codename')
+    return Permission.objects.filter(content_type__app_label='core').exclude(content_type__model__in=['useraccess','auditevent']).select_related('content_type').order_by('content_type__model','codename')
 
 
 class UserForm(forms.ModelForm):
@@ -71,7 +71,9 @@ def user_edit(request,pk=None):
                 # The matrix is authoritative: remove inherited grants that would override it.
                 user.groups.clear()
                 user.user_permissions.set(form.cleaned_data['permissions'])
-                Employee.objects.filter(user=user).update(user=None)
+                for linked in Employee.objects.select_for_update().filter(user=user):
+                    linked.user=None
+                    linked.save(update_fields=['user'])
                 employee=form.cleaned_data['employee']
                 if employee:
                     employee=Employee.objects.select_for_update().get(pk=employee.pk)

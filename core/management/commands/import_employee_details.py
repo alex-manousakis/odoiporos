@@ -28,7 +28,8 @@ class Command(BaseCommand):
                     if isinstance(value,str): value=value.strip()
                     if value not in (None,''):values[target]=value
                 if values:
-                    Employee.objects.filter(pk=employee.pk).update(**values)
+                    for name,value in values.items(): setattr(employee,name,value)
+                    employee.save(update_fields=list(values))
                     changed+=1;field_count+=len(values)
             if not options['apply']: transaction.set_rollback(True)
         self.stdout.write(f"{'Applied' if options['apply'] else 'Preview'}: {changed} employees, {field_count} blank fields filled. No existing values overwritten.")

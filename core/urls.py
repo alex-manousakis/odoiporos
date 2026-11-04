@@ -15,3 +15,6 @@ for kind,slug in [('positions','positions'),('employee_categories','employee-cat
 for kind,slug in [('departments','departments'),('signatories','signatories'),('travel_reasons','travel-reasons')]:
     urlpatterns += [path(slug+'/',employee_references.reference_list,{'kind':kind},name=kind),path(slug+'/new/',employee_references.reference_edit,{'kind':kind},name=kind+'_create'),path(slug+'/<int:pk>/edit/',employee_references.reference_edit,{'kind':kind},name=kind+'_edit')]
 urlpatterns += [path('daily-allowances/',daily_allowances.rate_list,name='daily_allowances'),path('daily-allowances/new/',daily_allowances.rate_edit,name='daily_allowance_create'),path('daily-allowances/<int:pk>/edit/',daily_allowances.rate_edit,name='daily_allowance_edit'),path('periods/',period_management.period_list,name='periods'),path('periods/new/',period_management.period_edit,name='period_create'),path('periods/<int:pk>/edit/',period_management.period_edit,name='period_edit')]
+
+from .activity import activity
+urlpatterns += [path('activity/', activity, name='activity')]

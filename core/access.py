@@ -76,6 +76,7 @@ def navigation(request):
         group('settings','Παράμετροι',[
             (user.has_perm('core.view_applicationparameters') or user.has_perm('core.change_applicationparameters'),'Παράμετροι εφαρμογής','parameters',('parameters',)),
             (user.is_superuser,'Χρήστες και δικαιώματα','users',('users','user_create','user_edit')),
+            (user.is_superuser,'Δραστηριότητα','activity',('activity',)),
             (True,'Αλλαγή κωδικού πρόσβασης','password_change',('password_change','password_change_done')),
         ])
     return {'can_create_travel':create,'navigation_sections':sections}
