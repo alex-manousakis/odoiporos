@@ -1,3 +1,4 @@
+from .number_formats import greek_number
 from .date_widgets import GreekDateInput
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -38,7 +39,7 @@ def document_pdf(travel,kind,print_date):
         from .calculation import input_state,signature
         estimate=travel.calculations.filter(stage='estimate').order_by('-revision').first()
         if not estimate or estimate.algorithm_version!='estimate-3' or estimate.inputs.get('signature')!=signature(input_state(travel)):raise ValidationError('Αποθηκεύστε τη μετακίνηση ώστε να υπάρχει ενημερωμένος υπολογισμός.')
-        body=employee.gender.text3+' '+employee.display_name+' με ατομική μου ευθύνη, δηλώνω ότι από '+fmt(travel.departure_at)+' έως '+fmt(travel.return_at)+' μετακινήθηκα για εκτέλεση υπηρεσίας στην/στις τοποθεσία/ες '+travel.route.destination+'. Για την εν λόγω μετακίνηση χρησιμοποίησα το με αριθμό κυκλοφορίας '+employee.car_plate+' ΙΧ αυτοκίνητό μου, τύπου '+employee.car_brand+'. Αριθμός αδείας οδήγησης: '+employee.driving_license+'. Χιλιόμετρα: '+str(travel.route.distance_km)+'. Κόστος χιλιομετρικής αποζημίωσης: '+str(estimate.mileage)+' ευρώ.'+reference
+        body=employee.gender.text3+' '+employee.display_name+' με ατομική μου ευθύνη, δηλώνω ότι από '+fmt(travel.departure_at)+' έως '+fmt(travel.return_at)+' μετακινήθηκα για εκτέλεση υπηρεσίας στην/στις τοποθεσία/ες '+travel.route.destination+'. Για την εν λόγω μετακίνηση χρησιμοποίησα το με αριθμό κυκλοφορίας '+employee.car_plate+' ΙΧ αυτοκίνητό μου, τύπου '+employee.car_brand+'. Αριθμός αδείας οδήγησης: '+employee.driving_license+'. Χιλιόμετρα: '+greek_number(travel.route.distance_km)+'. Κόστος χιλιομετρικής αποζημίωσης: '+greek_number(estimate.mileage)+' ευρώ.'+reference
     elif kind=='friends':
         nights=list(travel.overnights.filter(accommodation_type__requires_declaration=True).order_by('date'))
         if not nights:raise ValidationError('Δεν υπάρχουν διανυκτερεύσεις σε φιλικό σπίτι.')

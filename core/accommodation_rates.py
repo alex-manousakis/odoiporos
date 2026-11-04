@@ -1,3 +1,4 @@
+from .number_formats import GreekNumberFormMixin
 from .date_widgets import GreekDateInput
 from django import forms
 from django.contrib.auth.decorators import login_required, permission_required
@@ -9,7 +10,7 @@ from django.utils import timezone
 from .models import AccommodationRate, EmployeeCategory, ApplicationParameters
 
 
-class AccommodationRateForm(forms.ModelForm):
+class AccommodationRateForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=AccommodationRate
         fields=['category','is_abroad','valid_from','valid_to','minimum_distance_km','standard_limit','expensive_city_limit','island_limit']

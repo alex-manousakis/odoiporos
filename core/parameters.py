@@ -1,3 +1,4 @@
+from .number_formats import GreekNumberFormMixin
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -6,7 +7,7 @@ from django.shortcuts import redirect, render
 from .models import ApplicationParameters
 
 
-class ParametersForm(forms.ModelForm):
+class ParametersForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=ApplicationParameters
         exclude=['id']

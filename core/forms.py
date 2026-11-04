@@ -1,9 +1,10 @@
+from .number_formats import GreekNumberFormMixin
 from .date_widgets import GreekDateInput
 from django import forms
 from . import models as m
 
 
-class TravelForm(forms.ModelForm):
+class TravelForm(GreekNumberFormMixin, forms.ModelForm):
     confirm_transport_replacement = forms.BooleanField(label='Επιβεβαιώνω την αντικατάσταση των παλιών επιμέρους εκτιμήσεων με το επιλεγμένο μέσο και ποσά',required=False)
     class Meta:
         model = m.Travel
@@ -64,7 +65,7 @@ class TravelForm(forms.ModelForm):
         return data
 
 
-class ExpenseForm(forms.ModelForm):
+class ExpenseForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=m.TravelExpense
         fields=['kind','transport','description','estimated_amount','estimated_transfer_cost','estimated_distance_km']
@@ -113,7 +114,7 @@ class ExpenseForm(forms.ModelForm):
         return data
 
 
-class OvernightForm(forms.ModelForm):
+class OvernightForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=m.OvernightStay
         fields=['date','stop','accommodation_type','estimated_cost']

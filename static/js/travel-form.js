@@ -53,7 +53,7 @@ function updateSingleTransport(){
  }
  document.getElementById('id_ticket_cost').required=Boolean(mode?.has_ticket_cost);
  document.getElementById('single-mileage').hidden=!mode?.has_mileage_cost;
- document.getElementById('route-mileage').textContent=route?.distance_km||'—';
+ document.getElementById('route-mileage').textContent=route?.distance_km ? new Intl.NumberFormat('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(route.distance_km)) : '—';
 }
 document.getElementById('id_transport').addEventListener('change',updateSingleTransport);
 routeSelect.addEventListener('change',updateSingleTransport);updateSingleTransport();

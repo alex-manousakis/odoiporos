@@ -1,3 +1,4 @@
+from .number_formats import GreekNumberFormMixin
 from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
@@ -8,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .models import Route, RouteStop, ApplicationParameters
 
 
-class RouteForm(forms.ModelForm):
+class RouteForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=Route
         fields=['origin','is_abroad','distance_km','short_description','notes','is_active','has_daily_allowance','requires_review']

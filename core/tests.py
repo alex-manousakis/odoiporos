@@ -966,3 +966,23 @@ class SingleTransportTests(EstimateCalculationTests):
         response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
         self.assertEqual(response.status_code,200)
         self.assertIn('ticket_cost',response.context['form'].errors)
+
+
+class GreekNumberFormattingTests(SimpleTestCase):
+    def test_decimal_and_grouping_display(self):
+        from .number_formats import greek_number
+        self.assertEqual(greek_number('1234.56'),'1.234,56')
+        self.assertEqual(greek_number(Decimal('156.60')),'156,60')
+        self.assertEqual(greek_number('0'),'0,00')
+        self.assertEqual(greek_number('0.2000',4),'0,2000')
+
+    def test_greek_amount_submission_and_invalid_input(self):
+        from .number_formats import GreekNumberFormMixin
+        from django import forms
+        class AmountForm(GreekNumberFormMixin,forms.Form):
+            amount=forms.DecimalField(max_digits=14,decimal_places=2)
+        for text,expected in [('1.234,56','1234.56'),('156,60','156.60'),('1.234','1234'),('156.60','156.60')]:
+            form=AmountForm({'amount':text})
+            self.assertTrue(form.is_valid(),form.errors)
+            self.assertEqual(form.cleaned_data['amount'],Decimal(expected))
+        self.assertFalse(AmountForm({'amount':'1.2,34'}).is_valid())

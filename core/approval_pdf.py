@@ -1,3 +1,4 @@
+from .number_formats import greek_number
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -122,7 +123,7 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
     fmt=lambda day:day.strftime('%d/%m/%Y') if day else ''
     source={'header':parameters.document_header,'protocol_number':travel.protocol_number,'protocol_date':fmt(travel.protocol_date),'purpose':travel.purpose,
       'decision_text':decision,'employee':{'approval_subject':subject,'gender_id':employee.gender_id,'gender_text1':employee.gender.text1,'id':employee.pk,'name':employee.display_name,'genitive':employee.name_genitive,'department':str(employee.department or ''),'speciality':str(employee.speciality or ''),'position':str(employee.position or '')},
-      'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':format(estimate.document_budget,'.2f').replace('.',','),
+      'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':greek_number(estimate.document_budget),
       'departure':fmt(travel.departure_at),'return':fmt(travel.return_at),'work_start':fmt(travel.work_starts_at),'work_end':fmt(travel.work_ends_at),
       'destination':travel.route.destination,'transport':travel.transport.name if travel.transport_configured and travel.transport_id else ', '.join(dict.fromkeys(e.transport.name for e in travel.expenses.select_related('transport').filter(is_cancelled=False) if e.transport)),
       'away_days':days,'overnights':travel.overnights.count(),'annual_prior':prior_days,'annual_used':total_days,'annual_limit':parameters.allowedtravelsperyear,'annual_remaining':parameters.allowedtravelsperyear-total_days,
