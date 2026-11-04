@@ -1,1 +1,50 @@
-{% extends 'base.html' %}{% block content %}<h1>Σύνδεση</h1><form method="post">{% csrf_token %}{{ form.as_p }}<input type="hidden" name="next" value="{{ next }}"><button>Σύνδεση</button></form>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Σύνδεση | Οδοιπόρος{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block shell %}
+<main class="login-layout">
+  <div class="login-container">
+    <section class="login-brand-panel" aria-label="Οδοιπόρος">
+      <img class="login-logo" src="{% static 'branding/odoiporos-dark.png' %}" alt="Οδοιπόρος" width="2172" height="724">
+      <div class="login-intro">
+        <p class="login-eyebrow">ΥΠΗΡΕΣΙΑΚΕΣ ΜΕΤΑΚΙΝΗΣΕΙΣ</p>
+        <h1>Κάθε μετακίνηση,<br>οργανωμένη.</h1>
+        <p class="login-description">Η διαχείριση των μετακινήσεων και των εξόδων σας, σε ένα σημείο.</p>
+      </div>
+      <ul class="login-features">
+        <li><span aria-hidden="true">01</span> Καταχώριση μετακινήσεων</li>
+        <li><span aria-hidden="true">02</span> Υπολογισμός δαπανών</li>
+        <li><span aria-hidden="true">03</span> Έγγραφα και εγκρίσεις</li>
+      </ul>
+    </section>
+    <section class="login-form-panel" aria-labelledby="login-heading">
+      <div class="login-form-content">
+        <p class="login-form-eyebrow">Ο ΛΟΓΑΡΙΑΣΜΟΣ ΣΑΣ</p>
+        <h2 id="login-heading">Σύνδεση στον Οδοιπόρο</h2>
+        <p class="login-form-description">Συμπληρώστε τα στοιχεία πρόσβασής σας.</p>
+        {% if form.non_field_errors %}<div class="login-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        {% if next and user.is_authenticated %}<p class="login-errors" role="alert">Ο λογαριασμός σας δεν έχει πρόσβαση σε αυτή τη σελίδα. Συνδεθείτε με λογαριασμό που διαθέτει τα απαραίτητα δικαιώματα.</p>{% endif %}
+        <form method="post" class="login-form">
+          {% csrf_token %}
+          <div class="login-field">
+            <label for="id_username">Όνομα χρήστη</label>
+            <input type="text" name="username" id="id_username" value="{{ form.username.value|default_if_none:'' }}" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="150" required autofocus{% if form.username.errors %} aria-invalid="true" aria-describedby="username-errors"{% endif %}>
+            {% if form.username.errors %}<div id="username-errors" class="login-field-errors">{{ form.username.errors }}</div>{% endif %}
+          </div>
+          <div class="login-field">
+            <label for="id_password">Κωδικός πρόσβασης</label>
+            <input type="password" name="password" id="id_password" autocomplete="current-password" required{% if form.password.errors %} aria-invalid="true" aria-describedby="password-errors"{% endif %}>
+            {% if form.password.errors %}<div id="password-errors" class="login-field-errors">{{ form.password.errors }}</div>{% endif %}
+          </div>
+          <input type="hidden" name="next" value="{{ next }}">
+          <button type="submit" class="login-submit">Σύνδεση <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="login-help">Δεν μπορείτε να συνδεθείτε;<br>Επικοινωνήστε με τον διαχειριστή της εφαρμογής.</p>
+      </div>
+      <p class="login-access-note">Πρόσβαση μόνο για εξουσιοδοτημένους χρήστες.</p>
+    </section>
+  </div>
+  <footer class="login-footer">Οδοιπόρος · Διαχείριση εξόδων μετακίνησης</footer>
+</main>
+{% endblock shell %}

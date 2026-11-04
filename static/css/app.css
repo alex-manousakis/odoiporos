@@ -57,3 +57,28 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 .reference-search{display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px;max-width:780px}.reference-search>.field:first-child{width:300px}.reference-search>.field{width:170px}.reference-search>button,.reference-search>a{margin-bottom:10px}.reference-fields{max-width:600px}
 
 .password-change-form{max-width:540px}.password-change-form .field{margin-bottom:18px}.password-help{font-size:12px;color:#526b7d;line-height:1.6}.password-help ul{padding-left:20px}
+
+/* Odoiporos identity: original supplied artwork, responsive sign-in screen. */
+.sidebar .brand{display:block;flex-shrink:0;min-width:0}.sidebar .brand-logo{display:block;width:100%;height:auto;max-width:210px;border-radius:5px}.sidebar .brand span{margin-top:10px;color:#d2e1ec;font-size:11px;letter-spacing:.02em}
+.login-page{background:#edf2f6;color:#182c43}
+.login-layout{box-sizing:border-box;max-width:none;min-height:100vh;min-height:100svh;margin:0;padding:48px 28px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.login-container{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;max-width:1040px;overflow:hidden;background:white;border:1px solid #dce5ec;border-radius:20px;box-shadow:0 24px 70px #14324b12}
+.login-brand-panel{box-sizing:border-box;display:flex;flex-direction:column;margin:0;padding:42px;background:#0d1c2d;color:white;min-width:0}
+.login-logo{display:block;width:100%;max-width:370px;height:auto;margin:0 0 42px;border-radius:6px}
+.login-eyebrow,.login-form-eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;line-height:1.6;margin:0 0 16px}
+.login-eyebrow{color:#5fcac8}.login-intro h1{font-size:34px;line-height:1.3;letter-spacing:-.025em;font-weight:650;margin:0 0 18px}
+.login-description{color:#c1cfdd;font-size:15px;line-height:1.8;max-width:330px;margin:0}
+.login-features{list-style:none;display:grid;gap:16px;padding:30px 0 0;margin:32px 0 0;border-top:1px solid #ffffff24;font-size:13px;color:#dce7ef}
+.login-features li{display:flex;align-items:center;gap:14px}.login-features span{font-size:11px;color:#6ad0cf;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.login-form-panel{box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;min-width:0;margin:0;padding:56px 48px 28px}
+.login-form-content{width:100%;max-width:360px;margin:auto}.login-form-eyebrow{color:#347e89;margin-bottom:12px}
+.login-form-panel h2{font-size:25px;line-height:1.35;letter-spacing:-.025em;border:0;padding:0;margin:0 0 12px}.login-form-description{color:#607386;font-size:14px;line-height:1.6;margin:0 0 30px}
+.login-field{margin-bottom:20px}.login-field label{font-size:13px;font-weight:600;margin:0 0 9px}
+.login-field input{width:100%;min-height:48px;padding:12px 14px;background:#fbfcfe;border:1px solid #bdcbd8;border-radius:8px;color:#182c43;font-size:16px;transition:border-color .15s,box-shadow .15s}
+.login-field input:focus-visible{outline:0;border-color:#087f8c;box-shadow:0 0 0 3px #078b961a}.login-field input[aria-invalid=true]{border-color:#b64343}
+.login-submit{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;margin-top:26px;padding:12px 18px;border-radius:8px;background:#126d80;font-size:15px;font-weight:650}.login-submit:hover{background:#0d5b6b}.login-submit:focus-visible{outline:3px solid #6bc6cf;outline-offset:3px}.login-submit span{font-size:21px;line-height:1}
+.login-help{margin:26px 0 0;color:#607386;font-size:12px;line-height:1.85}.login-access-note{margin:38px 0 0;text-align:center;font-size:11px;line-height:1.6;color:#6b7f91}
+.login-errors{border:1px solid #edbebe;border-radius:8px;background:#fff4f4;padding:12px 14px;color:#922d2d;font-size:13px;line-height:1.6;margin-bottom:20px}.login-errors ul,.login-field-errors ul{list-style:none;margin:0;padding:0}.login-field-errors{font-size:12px;color:#922d2d;margin-top:6px}
+.login-footer{margin-top:24px;text-align:center;color:#697f91;font-size:12px;line-height:1.6}
+@media(max-width:800px){.login-layout{padding:28px 18px 20px}.login-brand-panel{padding:32px 26px}.login-form-panel{padding:40px 28px 24px}.login-intro h1{font-size:28px}.login-form-panel h2{font-size:22px}}
+@media(max-width:600px){.login-layout{padding:20px 14px;justify-content:flex-start}.login-container{max-width:440px;grid-template-columns:minmax(0,1fr);border-radius:14px}.login-brand-panel{padding:20px 26px}.login-logo{max-width:260px;margin:0 auto}.login-intro,.login-features{display:none}.login-form-panel{padding:30px 26px 24px}.login-form-panel h2{font-size:23px}.login-form-description{margin-bottom:24px}.login-access-note{margin-top:28px}.login-footer{font-size:11px;margin-top:18px}}
