@@ -986,3 +986,236 @@ class GreekNumberFormattingTests(SimpleTestCase):
             self.assertTrue(form.is_valid(),form.errors)
             self.assertEqual(form.cleaned_data['amount'],Decimal(expected))
         self.assertFalse(AmountForm({'amount':'1.2,34'}).is_valid())
+
+
+class TransportModeManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='transport-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.data={'code':'CF','name':'Car and ferry','has_mileage_cost':'on','has_ticket_cost':'on','is_active':'on'}
+
+    def test_create_combined_mode_and_filter(self):
+        from .models import TransportMode
+        self.assertEqual(self.client.post('/transport-modes/new/',self.data).status_code,302)
+        mode=TransportMode.objects.get()
+        self.assertTrue(mode.has_mileage_cost and mode.has_ticket_cost)
+        response=self.client.get('/transport-modes/',{'code':'CF'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.context['page'].paginator.count,1)
+        self.assertContains(response,'/transport-modes/')
+
+    def test_duplicate_code_rejected(self):
+        from .models import TransportMode
+        self.client.post('/transport-modes/new/',self.data)
+        response=self.client.post('/transport-modes/new/',{**self.data,'code':'cf'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(TransportMode.objects.count(),1)
+
+    def test_deactivate_preserves_mode(self):
+        from .models import TransportMode
+        self.client.post('/transport-modes/new/',self.data)
+        mode=TransportMode.objects.get()
+        data={k:v for k,v in self.data.items() if k!='is_active'}
+        self.assertEqual(self.client.post(f'/transport-modes/{mode.pk}/edit/',data).status_code,302)
+        mode.refresh_from_db();self.assertFalse(mode.is_active)
+        self.assertEqual(self.client.get('/transport-modes/',{'state':'active'}).context['page'].paginator.count,0)
+
+    def test_view_only_cannot_change(self):
+        from django.contrib.auth.models import Permission
+        from .models import TransportMode
+        mode=TransportMode.objects.create(code='BUS',name='Bus')
+        reader=get_user_model().objects.create_user(username='transport-reader')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_transportmode'))
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get('/transport-modes/').status_code,200)
+        self.assertEqual(self.client.post('/transport-modes/new/',self.data).status_code,403)
+        self.assertEqual(self.client.post(f'/transport-modes/{mode.pk}/edit/',self.data).status_code,403)
+
+    def test_no_permission_cannot_list(self):
+        self.client.force_login(get_user_model().objects.create_user(username='transport-denied'))
+        self.assertEqual(self.client.get('/transport-modes/').status_code,403)
+
+
+class AccommodationTypeManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='stay-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.data={'code':'CF','name':'Car and ferry','has_cost':'on','requires_declaration':'on','is_active':'on'}
+
+    def test_create_combined_mode_and_filter(self):
+        from .models import AccommodationType
+        self.assertEqual(self.client.post('/accommodation-types/new/',self.data).status_code,302)
+        mode=AccommodationType.objects.get()
+        self.assertTrue(mode.has_cost and mode.requires_declaration)
+        response=self.client.get('/accommodation-types/',{'code':'CF'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.context['page'].paginator.count,1)
+        self.assertContains(response,'/accommodation-types/')
+
+    def test_duplicate_code_rejected(self):
+        from .models import AccommodationType
+        self.client.post('/accommodation-types/new/',self.data)
+        response=self.client.post('/accommodation-types/new/',{**self.data,'code':'cf'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(AccommodationType.objects.count(),1)
+
+    def test_deactivate_preserves_mode(self):
+        from .models import AccommodationType
+        self.client.post('/accommodation-types/new/',self.data)
+        mode=AccommodationType.objects.get()
+        data={k:v for k,v in self.data.items() if k!='is_active'}
+        self.assertEqual(self.client.post(f'/accommodation-types/{mode.pk}/edit/',data).status_code,302)
+        mode.refresh_from_db();self.assertFalse(mode.is_active)
+        self.assertEqual(self.client.get('/accommodation-types/',{'state':'active'}).context['page'].paginator.count,0)
+
+    def test_view_only_cannot_change(self):
+        from django.contrib.auth.models import Permission
+        from .models import AccommodationType
+        mode=AccommodationType.objects.create(code='BUS',name='Bus')
+        reader=get_user_model().objects.create_user(username='stay-reader')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_accommodationtype'))
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get('/accommodation-types/').status_code,200)
+        self.assertEqual(self.client.post('/accommodation-types/new/',self.data).status_code,403)
+        self.assertEqual(self.client.post(f'/accommodation-types/{mode.pk}/edit/',self.data).status_code,403)
+
+    def test_no_permission_cannot_list(self):
+        self.client.force_login(get_user_model().objects.create_user(username='stay-denied'))
+        self.assertEqual(self.client.get('/accommodation-types/').status_code,403)
+
+
+class EmployeeReferenceManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='references-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+
+    def test_create_and_edit_all_three_reference_types(self):
+        from .models import Position,EmployeeCategory,Speciality
+        for slug,model in [('positions',Position),('employee-categories',EmployeeCategory),('specialities',Speciality)]:
+            with self.subTest(slug=slug):
+                data={'name':'Test reference','is_active':'on','name_genitive':'Genitive reference'}
+                self.assertEqual(self.client.post(f'/{slug}/new/',data).status_code,302)
+                record=model.objects.get()
+                if model is Position:self.assertEqual(record.name_genitive,'Genitive reference')
+                self.assertEqual(self.client.get(f'/{slug}/').status_code,200)
+                self.assertEqual(self.client.post(f'/{slug}/{record.pk}/edit/',{'name':'Updated'}).status_code,302)
+                record.refresh_from_db();self.assertEqual(record.name,'Updated');self.assertFalse(record.is_active)
+
+    def test_filters(self):
+        from .models import Position
+        Position.objects.create(name='Active position')
+        Position.objects.create(name='Inactive position',is_active=False)
+        response=self.client.get('/positions/',{'q':'Inactive','state':'inactive'})
+        self.assertEqual(response.context['page'].paginator.count,1)
+
+    def test_view_permission_cannot_write_or_access_other_types(self):
+        from django.contrib.auth.models import Permission
+        user=get_user_model().objects.create_user(username='position-reader')
+        user.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_position'))
+        self.client.force_login(user)
+        self.assertEqual(self.client.get('/positions/').status_code,200)
+        self.assertEqual(self.client.post('/positions/new/',{'name':'Forged'}).status_code,403)
+        self.assertEqual(self.client.get('/employee-categories/').status_code,403)
+        self.assertEqual(self.client.get('/specialities/').status_code,403)
+
+    def test_inactive_current_position_preserved_in_employee_form(self):
+        from .models import Position
+        from .employee_management import EmployeeForm
+        current=Position.objects.create(name='Old position',is_active=False)
+        hidden=Position.objects.create(name='Unused old position',is_active=False)
+        employee=Employee.objects.create(display_name='Employee',position=current)
+        form=EmployeeForm(instance=employee,actor=self.admin)
+        self.assertIn(current,form.fields['position'].queryset)
+        self.assertNotIn(hidden,form.fields['position'].queryset)
+
+
+class DailyAllowanceManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='hotel-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+        self.category=EmployeeCategory.objects.create(name='Hotel category')
+        self.data={'category':self.category.pk,'valid_from':'2026-01-01','valid_to':'2026-12-31','without_overnight':'50','band_1':'80','band_2':'100','band_3':'90'}
+
+    def test_create_and_list(self):
+        from .models import DailyAllowanceRate
+        self.assertEqual(self.client.post('/daily-allowances/new/',self.data).status_code,302)
+        self.assertEqual(DailyAllowanceRate.objects.get().band_1,Decimal('80'))
+        self.assertEqual(self.client.get('/daily-allowances/').status_code,200)
+        rate=DailyAllowanceRate.objects.get()
+        self.assertEqual(self.client.get(f'/daily-allowances/{rate.pk}/edit/').status_code,200)
+
+    def test_overlap_rejected_including_shared_boundary(self):
+        from .models import DailyAllowanceRate
+        self.client.post('/daily-allowances/new/',self.data)
+        response=self.client.post('/daily-allowances/new/',{**self.data,'valid_from':'2026-12-31','valid_to':'2027-12-31'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(DailyAllowanceRate.objects.count(),1)
+
+    def test_adjacent_period_and_abroad_are_allowed(self):
+        from .models import DailyAllowanceRate
+        self.client.post('/daily-allowances/new/',self.data)
+        self.assertEqual(self.client.post('/daily-allowances/new/',{**self.data,'valid_from':'2027-01-01','valid_to':'2027-12-31'}).status_code,302)
+        self.assertEqual(self.client.post('/daily-allowances/new/',{**self.data,'is_abroad':'on'}).status_code,302)
+        self.assertEqual(DailyAllowanceRate.objects.count(),3)
+
+    def test_invalid_dates_and_negative_amounts_rejected(self):
+        from .models import DailyAllowanceRate
+        response=self.client.post('/daily-allowances/new/',{**self.data,'valid_to':'2025-12-31','band_1':'-1'})
+        self.assertEqual(response.status_code,200)
+        self.assertFalse(DailyAllowanceRate.objects.exists())
+
+    def test_existing_period_can_be_edited_without_self_overlap(self):
+        from .models import DailyAllowanceRate
+        self.client.post('/daily-allowances/new/',self.data)
+        rate=DailyAllowanceRate.objects.get()
+        self.assertEqual(self.client.post(f'/daily-allowances/{rate.pk}/edit/',{**self.data,'band_1':'85'}).status_code,302)
+        rate.refresh_from_db();self.assertEqual(rate.band_1,Decimal('85'))
+
+    def test_read_only_permission_cannot_create_or_edit(self):
+        from django.contrib.auth.models import Permission
+        reader=get_user_model().objects.create_user(username='hotel-reader')
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='view_dailyallowancerate'))
+        self.client.force_login(reader)
+        self.assertEqual(self.client.get('/daily-allowances/').status_code,200)
+        self.assertEqual(self.client.post('/daily-allowances/new/',self.data).status_code,403)
+
+
+
+class AuxiliaryManagementTests(TestCase):
+    def setUp(self):
+        self.admin=get_user_model().objects.create_superuser(username='aux-admin',password='Test-Password-123')
+        self.client.force_login(self.admin)
+
+    def test_departments_signatories_and_reasons(self):
+        from .models import Department,Signatory,TravelReason
+        for slug,model in [('departments',Department),('signatories',Signatory),('travel-reasons',TravelReason)]:
+            with self.subTest(slug=slug):
+                data={'name':'Test reference','name_genitive':'Genitive','responsible':'Department head','sort_order':'1','speciality':'Director','is_active':'on'}
+                self.assertEqual(self.client.post(f'/{slug}/new/',data).status_code,302)
+                obj=model.objects.get()
+                self.assertEqual(self.client.get(f'/{slug}/').status_code,200)
+                self.assertEqual(self.client.get(f'/{slug}/{obj.pk}/edit/').status_code,200)
+                if model is Department:self.assertEqual(obj.responsible,'Department head')
+                if model is Signatory:self.assertEqual(obj.speciality,'Director')
+
+    def test_period_create_and_closed_period_is_readonly(self):
+        from .models import SettlementPeriod
+        from django.utils import timezone
+        data={'name':'Quarter 1','code':'Q1','starts_on':'01/01/2027','ends_on':'31/03/2027','is_active':'on'}
+        self.assertEqual(self.client.post('/periods/new/',data).status_code,302)
+        period=SettlementPeriod.objects.get()
+        self.assertEqual(self.client.get('/periods/').status_code,200)
+        period.closed_at=timezone.now();period.save()
+        self.assertEqual(self.client.get(f'/periods/{period.pk}/edit/').status_code,200)
+        self.assertEqual(self.client.post(f'/periods/{period.pk}/edit/',data).status_code,403)
+
+    def test_period_invalid_dates(self):
+        from .models import SettlementPeriod
+        data={'name':'Invalid','starts_on':'01/04/2027','ends_on':'31/03/2027'}
+        self.assertEqual(self.client.post('/periods/new/',data).status_code,200)
+        self.assertFalse(SettlementPeriod.objects.exists())
+
+    def test_auxiliary_permissions_required(self):
+        self.client.force_login(get_user_model().objects.create_user(username='aux-denied'))
+        for path in ['/departments/','/signatories/','/travel-reasons/','/periods/','/daily-allowances/']:
+            with self.subTest(path=path):self.assertEqual(self.client.get(path).status_code,403)

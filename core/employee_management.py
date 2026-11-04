@@ -28,6 +28,9 @@ class EmployeeForm(forms.ModelForm):
 
     def __init__(self,*args,actor,**kwargs):
         super().__init__(*args,**kwargs)
+        for name in ['position','speciality']:
+            field=self.fields[name]
+            field.queryset=field.queryset.filter(Q(is_active=True)|Q(pk=getattr(self.instance,name+'_id')))
         self.fields['birth_date'].input_formats=['%d/%m/%Y','%Y-%m-%d']
         if not actor.is_superuser:
             # Linking another login to an employee also changes access to travel data.

@@ -24,6 +24,8 @@ class NamedReference(ImportedModel):
 
 
 class Department(NamedReference):
+    responsible = models.CharField("Προϊστάμενος", max_length=150, blank=True)
+    sort_order = models.IntegerField("Σειρά εμφάνισης", default=0)
     name_genitive = models.CharField(max_length=100, blank=True)
 
 
@@ -316,7 +318,12 @@ class CalculationSnapshot(models.Model):
         constraints = [models.UniqueConstraint(fields=["travel", "stage", "revision"], name="unique_calculation_revision")]
 
 
-class SettlementPeriod(models.Model):
+class SettlementPeriod(ImportedModel):
+    code = models.CharField("Κωδικός", max_length=20, blank=True)
+    reference_number = models.CharField("Αριθμός κατάστασης", max_length=20, blank=True)
+    has_mtpy = models.BooleanField("Κράτηση ΜΤΠΥ", default=False)
+    has_geotee = models.BooleanField("Κράτηση ΓΕΩΤΕΕ", default=False)
+    is_active = models.BooleanField("Ενεργή", default=True)
     name = models.CharField(max_length=100)
     starts_on = models.DateField()
     ends_on = models.DateField()
