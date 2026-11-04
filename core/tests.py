@@ -1219,3 +1219,47 @@ class AuxiliaryManagementTests(TestCase):
         self.client.force_login(get_user_model().objects.create_user(username='aux-denied'))
         for path in ['/departments/','/signatories/','/travel-reasons/','/periods/','/daily-allowances/']:
             with self.subTest(path=path):self.assertEqual(self.client.get(path).status_code,403)
+
+
+class PersonalPasswordChangeTests(TestCase):
+    def setUp(self):
+        self.old_password='Old-Test-Password-123!'
+        self.new_password='New-Test-Password-456!'
+        self.user=get_user_model().objects.create_user(username='password-owner',password=self.old_password)
+        self.client.force_login(self.user)
+        self.url='/accounts/password_change/'
+
+    def test_change_password_keeps_session_and_only_changes_current_user(self):
+        other=get_user_model().objects.create_user(username='other-password-user',password=self.old_password)
+        response=self.client.post(self.url,{'old_password':self.old_password,'new_password1':self.new_password,'new_password2':self.new_password,'user':other.pk})
+        self.assertRedirects(response,'/accounts/password_change/done/')
+        self.user.refresh_from_db();other.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.new_password))
+        self.assertFalse(self.user.check_password(self.old_password))
+        self.assertTrue(other.check_password(self.old_password))
+        self.assertEqual(str(self.client.session['_auth_user_id']),str(self.user.pk))
+
+    def test_wrong_current_password_rejected(self):
+        response=self.client.post(self.url,{'old_password':'Wrong-Password','new_password1':self.new_password,'new_password2':self.new_password})
+        self.assertEqual(response.status_code,200)
+        self.assertIn('old_password',response.context['form'].errors)
+        self.user.refresh_from_db();self.assertTrue(self.user.check_password(self.old_password))
+
+    def test_mismatch_rejected(self):
+        response=self.client.post(self.url,{'old_password':self.old_password,'new_password1':self.new_password,'new_password2':'Different-Password'})
+        self.assertIn('new_password2',response.context['form'].errors)
+
+    def test_login_required(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code,302)
+
+    def test_csrf_required(self):
+        from django.test import Client
+        client=Client(enforce_csrf_checks=True);client.force_login(self.user)
+        self.assertEqual(client.post(self.url,{'old_password':self.old_password,'new_password1':self.new_password,'new_password2':self.new_password}).status_code,403)
+
+    def test_menu_and_form_available_without_management_permissions(self):
+        response=self.client.get(self.url)
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'name="old_password"')
+        self.assertContains(response,'href="/accounts/password_change/"')

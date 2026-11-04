@@ -55,3 +55,5 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 .transport-search>div{display:grid;grid-template-columns:140px minmax(220px,340px) 160px;gap:16px}.transport-mode-fields{max-width:660px;display:grid;grid-template-columns:160px minmax(0,1fr);gap:12px 22px}.transport-mode-fields .field:nth-child(n+3){grid-column:1/-1}@media(max-width:700px){.transport-search>div,.transport-mode-fields{grid-template-columns:minmax(0,1fr)}}
 
 .reference-search{display:flex;align-items:flex-end;flex-wrap:wrap;gap:14px;max-width:780px}.reference-search>.field:first-child{width:300px}.reference-search>.field{width:170px}.reference-search>button,.reference-search>a{margin-bottom:10px}.reference-fields{max-width:600px}
+
+.password-change-form{max-width:540px}.password-change-form .field{margin-bottom:18px}.password-help{font-size:12px;color:#526b7d;line-height:1.6}.password-help ul{padding-left:20px}

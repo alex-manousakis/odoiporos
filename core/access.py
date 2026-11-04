@@ -46,7 +46,7 @@ def navigation(request):
         items=[]
         for allowed,title,url_name,active_names in entries:
             if allowed:
-                items.append({'label':title,'url':reverse('core:'+url_name),'active':current in active_names})
+                items.append({'label':title,'url':reverse(url_name if url_name=='password_change' else 'core:'+url_name),'active':current in active_names})
         if items:sections.append({'key':key,'label':label,'items':items,'active':any(i['active'] for i in items)})
 
     if user.is_authenticated:
@@ -76,5 +76,6 @@ def navigation(request):
         group('settings','Παράμετροι',[
             (user.has_perm('core.view_applicationparameters') or user.has_perm('core.change_applicationparameters'),'Παράμετροι εφαρμογής','parameters',('parameters',)),
             (user.is_superuser,'Χρήστες και δικαιώματα','users',('users','user_create','user_edit')),
+            (True,'Αλλαγή κωδικού πρόσβασης','password_change',('password_change','password_change_done')),
         ])
     return {'can_create_travel':create,'navigation_sections':sections}
