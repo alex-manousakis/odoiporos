@@ -18,24 +18,6 @@ function addRow(prefix){const total=document.getElementById(`id_${prefix}-TOTAL_
 document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>addRow(b.dataset.add)));
 document.getElementById('generate-nights').addEventListener('click',()=>{const start=parseGreekDate(document.getElementById('id_departure_at').value);const end=parseGreekDate(document.getElementById('id_return_at').value);const message=document.getElementById('night-message');if(!start||!end||end<start||!routeSelect.value){message.textContent='Συμπληρώστε διαδρομή και έγκυρες ημερομηνίες.';return;}const existing=new Set(Array.from(document.querySelectorAll('#stays-rows input[data-greek-date]')).map(i=>parseGreekDate(i.value)));let day=new Date(start+'T00:00:00Z');const finish=new Date(end+'T00:00:00Z');if((finish-day)/86400000>366){message.textContent='Για διάστημα άνω των 366 ημερών χρειάζεται έλεγχος.';return;}while(day<finish){const value=day.toISOString().slice(0,10);if(!existing.has(value)){let row=Array.from(document.querySelectorAll('#stays-rows .stay-row')).find(r=>!r.querySelector('input[data-greek-date]').value);if(!row)row=addRow('stays');fillStops(row.querySelector('select[name$="-stop"]'));row.querySelector('input[data-greek-date]').value=formatGreekDate(value);const stops=row.querySelector('select[name$="-stop"]');if(stops.options.length>1)stops.selectedIndex=1;initializeStay(row);existing.add(value);}day.setUTCDate(day.getUTCDate()+1);}message.textContent='Συμπληρώθηκαν οι νύχτες που έλειπαν. Ελέγξτε πόλη, τύπο και κόστος.';});
 
-const modes=JSON.parse(document.getElementById('transport-data').textContent);
-function updateCosts(row, infer=false){
- const transport=row.querySelector('[name$="-transport"]');
- const kind=row.querySelector('[name$="-kind"]');
- const mode=modes.find(m=>String(m.id)===transport.value);
- if(infer && mode){if(mode.has_ticket_cost)kind.value='ticket';else if(mode.has_mileage_cost)kind.value='mileage';else kind.value='other';}
- const showTicket=kind.value==='other'||(kind.value==='ticket'&&mode?.has_ticket_cost);
- const visibility={ticket:showTicket,transfer:kind.value==='ticket'&&mode?.has_ticket_cost,mileage:kind.value==='mileage'&&mode?.has_mileage_cost};
- for(const group of row.querySelectorAll('[data-cost]')){
-  const input=group.querySelector('input');
-  // Retain entered values visibly rather than silently discarding them on mode change.
-  group.hidden=!visibility[group.dataset.cost]&&!input.value;
- }
-}
-document.querySelectorAll('.expense-row').forEach(row=>updateCosts(row));
-document.getElementById('expenses-rows').addEventListener('change',event=>{const row=event.target.closest('.expense-row');if(row)updateCosts(row,event.target.name.endsWith('-transport'));});
-new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1&&node.matches('.expense-row'))updateCosts(node);}).observe(document.getElementById('expenses-rows'),{childList:true});
-
 const accommodation=JSON.parse(document.getElementById('accommodation-data').textContent);
 function updateStay(row){
  const kind=row.querySelector('[name$="-accommodation_type"]');
@@ -59,10 +41,19 @@ for(const id of ['id_departure_at','id_return_at','id_route'])document.getElemen
 const hasExistingDates=Array.from(document.querySelectorAll('#stays-rows input[data-greek-date]')).some(i=>i.value);
 if(!hasExistingDates && !document.querySelector('.errorlist'))document.getElementById('generate-nights').click();
 
-function refreshRouteMileage(){
+const modes=JSON.parse(document.getElementById('transport-data').textContent);
+function updateSingleTransport(){
+ const select=document.getElementById('id_transport');
+ const mode=modes.find(m=>String(m.id)===select.value);
  const route=routes.find(r=>String(r.id)===routeSelect.value);
- document.querySelectorAll('#expenses-rows [name$="-estimated_distance_km"]').forEach(input=>{input.value=route?.distance_km||'';});
+ for(const id of ['single-ticket-cost','single-transfer-cost']){
+  const group=document.getElementById(id);group.hidden=!mode?.has_ticket_cost;
+  // Disabled controls are ignored by the server; entered values stay available if toggled back.
+  group.querySelector('input').disabled=!mode?.has_ticket_cost;
+ }
+ document.getElementById('id_ticket_cost').required=Boolean(mode?.has_ticket_cost);
+ document.getElementById('single-mileage').hidden=!mode?.has_mileage_cost;
+ document.getElementById('route-mileage').textContent=route?.distance_km||'—';
 }
-routeSelect.addEventListener('change',refreshRouteMileage);
-new MutationObserver(refreshRouteMileage).observe(document.getElementById('expenses-rows'),{childList:true});
-refreshRouteMileage();
+document.getElementById('id_transport').addEventListener('change',updateSingleTransport);
+routeSelect.addEventListener('change',updateSingleTransport);updateSingleTransport();

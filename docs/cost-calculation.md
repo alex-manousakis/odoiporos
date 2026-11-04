@@ -16,3 +16,7 @@ Validation: controlled domestic/foreign cases, same-day allowance, mileage, tran
 
 
 Automatic calculation runs after saving travel data or cost rows. Validation failures preserve the saved input and display a warning; previous snapshots remain stale rather than being relabeled as current. Manual recalculation remains available.
+
+
+## Single transport workflow (estimate-3)
+Travel now stores one transport mode and ticket/airport transfer amounts. Mileage and ticket flags are evaluated independently; a combined mode includes both. Unsupported submitted ticket amounts are cleared by form validation and ignored by calculation. Mileage always uses the full route distance. Legacy expense rows are retained for audit/comparison. Unconverted legacy trips retain their previous estimate path until a single transport is explicitly selected; multi-mode or miscellaneous legacy estimates require confirmation before replacement. Existing archived PDFs remain unchanged.

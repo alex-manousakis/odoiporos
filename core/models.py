@@ -197,6 +197,10 @@ class TravelStatus(NamedReference):
 
 
 class Travel(ImportedModel):
+    transport = models.ForeignKey(TransportMode, on_delete=models.PROTECT, null=True, blank=True)
+    ticket_cost = money(null=True, blank=True)
+    transfer_cost = money(null=True, blank=True)
+    transport_configured = models.BooleanField(default=False)
     employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="travels")
     route = models.ForeignKey(Route, on_delete=models.PROTECT, related_name="travels")
     applied_category = models.ForeignKey(EmployeeCategory, on_delete=models.PROTECT, null=True, blank=True)

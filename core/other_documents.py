@@ -34,10 +34,10 @@ def document_pdf(travel,kind,print_date):
     reference=(' Η παρούσα συνοδεύει την απόφαση έγκρισης μετακίνησης '+protocol+'.') if protocol else ''
     if kind=='car':
         if not employee.car_plate or not employee.car_brand or not employee.driving_license:raise ValidationError('Συμπληρώστε πινακίδα, μάρκα και άδεια οδήγησης στον εργαζόμενο.')
-        if not travel.expenses.filter(kind='mileage',is_cancelled=False).exists():raise ValidationError('Η μετακίνηση δεν περιλαμβάνει χρήση ΙΧ.')
+        if not ((travel.transport_configured and travel.transport_id and travel.transport.has_mileage_cost) or (not travel.transport_configured and travel.expenses.filter(kind='mileage',is_cancelled=False).exists())):raise ValidationError('Η μετακίνηση δεν περιλαμβάνει χρήση ΙΧ.')
         from .calculation import input_state,signature
         estimate=travel.calculations.filter(stage='estimate').order_by('-revision').first()
-        if not estimate or estimate.algorithm_version!='estimate-2' or estimate.inputs.get('signature')!=signature(input_state(travel)):raise ValidationError('Αποθηκεύστε τη μετακίνηση ώστε να υπάρχει ενημερωμένος υπολογισμός.')
+        if not estimate or estimate.algorithm_version!='estimate-3' or estimate.inputs.get('signature')!=signature(input_state(travel)):raise ValidationError('Αποθηκεύστε τη μετακίνηση ώστε να υπάρχει ενημερωμένος υπολογισμός.')
         body=employee.gender.text3+' '+employee.display_name+' με ατομική μου ευθύνη, δηλώνω ότι από '+fmt(travel.departure_at)+' έως '+fmt(travel.return_at)+' μετακινήθηκα για εκτέλεση υπηρεσίας στην/στις τοποθεσία/ες '+travel.route.destination+'. Για την εν λόγω μετακίνηση χρησιμοποίησα το με αριθμό κυκλοφορίας '+employee.car_plate+' ΙΧ αυτοκίνητό μου, τύπου '+employee.car_brand+'. Αριθμός αδείας οδήγησης: '+employee.driving_license+'. Χιλιόμετρα: '+str(travel.route.distance_km)+'. Κόστος χιλιομετρικής αποζημίωσης: '+str(estimate.mileage)+' ευρώ.'+reference
     elif kind=='friends':
         nights=list(travel.overnights.filter(accommodation_type__requires_declaration=True).order_by('date'))

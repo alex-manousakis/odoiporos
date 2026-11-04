@@ -95,7 +95,7 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied
     estimate=travel.calculations.filter(stage='estimate').order_by('-revision').first()
-    if not estimate or estimate.algorithm_version!='estimate-2' or estimate.inputs.get('signature')!=signature(input_state(travel)):
+    if not estimate or estimate.algorithm_version!='estimate-3' or estimate.inputs.get('signature')!=signature(input_state(travel)):
         raise ValidationError('Απαιτείται ενημερωμένη εκτίμηση. Αποθηκεύστε ή υπολογίστε ξανά τη μετακίνηση.')
     parameters=ApplicationParameters.objects.filter(pk=1).first()
     if not parameters or parameters.allowedtravelsperyear is None:raise ValidationError('Συμπληρώστε το ετήσιο όριο ημερών στις παραμέτρους.')
@@ -124,7 +124,7 @@ def generate_approval(travel_id,user,signatory,heading,prior_days):
       'decision_text':decision,'employee':{'approval_subject':subject,'gender_id':employee.gender_id,'gender_text1':employee.gender.text1,'id':employee.pk,'name':employee.display_name,'genitive':employee.name_genitive,'department':str(employee.department or ''),'speciality':str(employee.speciality or ''),'position':str(employee.position or '')},
       'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':format(estimate.document_budget,'.2f').replace('.',','),
       'departure':fmt(travel.departure_at),'return':fmt(travel.return_at),'work_start':fmt(travel.work_starts_at),'work_end':fmt(travel.work_ends_at),
-      'destination':travel.route.destination,'transport':', '.join(dict.fromkeys(e.transport.name for e in travel.expenses.select_related('transport').filter(is_cancelled=False) if e.transport)),
+      'destination':travel.route.destination,'transport':travel.transport.name if travel.transport_configured and travel.transport_id else ', '.join(dict.fromkeys(e.transport.name for e in travel.expenses.select_related('transport').filter(is_cancelled=False) if e.transport)),
       'away_days':days,'overnights':travel.overnights.count(),'annual_prior':prior_days,'annual_used':total_days,'annual_limit':parameters.allowedtravelsperyear,'annual_remaining':parameters.allowedtravelsperyear-total_days,
       'signatory':{'id':signatory.pk,'name':signatory.name,'speciality':signatory.speciality},'signature_heading':heading,'calculation_id':estimate.pk}
     data=render_pdf(source)

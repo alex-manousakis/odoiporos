@@ -39,7 +39,7 @@ def unique_rate(model,**filters):
 
 def input_state(travel):
     # Snapshot only calculation inputs, not employee personal or banking information.
-    fields=['employee_id','route_id','departure_at','return_at','work_starts_at','work_ends_at','applied_category_id','category_review_required','mileage_override']
+    fields=['employee_id','route_id','departure_at','return_at','work_starts_at','work_ends_at','applied_category_id','category_review_required','mileage_override','transport_id','transport_configured','ticket_cost','transfer_cost']
     parameters=ApplicationParameters.objects.filter(pk=1).values('homedistancelimit','percentageofbudgetinc','roundtotalbudget','budgetdownlimit').first()
     return {'travel':{n:str(getattr(travel,n)) for n in fields},
         'route':list(travel.route.__class__.objects.filter(pk=travel.route_id).values('distance_km','is_abroad','has_daily_allowance','requires_review')),
@@ -47,6 +47,7 @@ def input_state(travel):
         'expenses':list(travel.expenses.order_by('pk').values('id','kind','transport_id','transport__has_mileage_cost','transport__has_ticket_cost','estimated_amount','estimated_transfer_cost','estimated_distance_km','is_cancelled')),
         'nights':list(travel.overnights.order_by('pk').values('id','date','stop_id','city','is_abroad','is_expensive','is_island','compensation_band','accommodation_type__has_cost','estimated_cost')),
         'category_history':list(travel.employee.category_history.values('category_id','valid_from','valid_to')),
+        'transport_flags':{'mileage':travel.transport.has_mileage_cost,'ticket':travel.transport.has_ticket_cost} if travel.transport_id else None,
         'parameters':parameters,
         'daily_rates':list(DailyAllowanceRate.objects.order_by('pk').values()),
         'hotel_rates':list(AccommodationRate.objects.order_by('pk').values()),
@@ -97,28 +98,44 @@ def calculate_estimate(travel_id,actor):
         if travel.route.is_abroad:abroad=total
         else:domestic=total
         details['rates'].append({'type':'daily','id':rate.pk,'per_day':str(per_day)})
-    if travel.expenses.filter(kind='mileage',is_cancelled=False).count()>1:
-        raise ValidationError('Only one mileage entry is allowed per full route.')
-    for expense in travel.expenses.select_related('transport').filter(is_cancelled=False):
-        amount=ZERO
-        if expense.kind=='mileage':
-            if not expense.transport or not expense.transport.has_mileage_cost or travel.route.distance_km<=0:
-                raise ValidationError('Ελέγξτε μέσο και χιλιόμετρα ΙΧ.')
+    if travel.transport_configured:
+        mode=travel.transport
+        if not mode:raise ValidationError('Επιλέξτε μέσο μετακίνησης.')
+        if mode.has_mileage_cost:
+            if travel.route.distance_km<=0:raise ValidationError('Η διαδρομή δεν έχει θετική απόσταση.')
             rate_value=travel.mileage_override
             if rate_value is None or rate_value<=0:
                 rate=unique_rate(MileageRate,valid_from__lte=start,valid_to__gte=start)
                 rate_value=rate.amount_per_km
                 details['rates'].append({'type':'mileage','id':rate.pk,'amount':str(rate_value)})
-            amount=rounded(travel.route.distance_km*rate_value);mileage+=amount
-        elif expense.kind in ('ticket','other'):
-            if expense.estimated_amount is None or expense.estimated_amount<0:raise ValidationError('Λείπει ποσό δαπάνης.')
-            amount=expense.estimated_amount
-            if expense.kind=='ticket':
-                if not expense.transport or not expense.transport.has_ticket_cost:raise ValidationError('Μη έγκυρο μέσο εισιτηρίου.')
-                tickets+=amount;other+=expense.estimated_transfer_cost or ZERO
-            else:other+=amount
-        else:raise ValidationError('Άγνωστο είδος δαπάνης.')
-        details['expenses'].append({'id':expense.pk,'amount':str(amount),'airport_transfer':str(expense.estimated_transfer_cost or ZERO)})
+            mileage=rounded(travel.route.distance_km*rate_value)
+        if mode.has_ticket_cost:
+            if travel.ticket_cost is None or travel.ticket_cost<0 or (travel.transfer_cost or ZERO)<0:raise ValidationError('Ελέγξτε τα κόστη εισιτηρίων και πρόσβασης.')
+            tickets=travel.ticket_cost;other=travel.transfer_cost or ZERO
+        details['transport']={'id':mode.pk,'name':mode.name,'has_mileage_cost':mode.has_mileage_cost,'has_ticket_cost':mode.has_ticket_cost,'distance_km':str(travel.route.distance_km),'mileage':str(mileage),'tickets':str(tickets),'transfers':str(other)}
+    else:
+        if travel.expenses.filter(kind='mileage',is_cancelled=False).count()>1:
+            raise ValidationError('Only one mileage entry is allowed per full route.')
+        for expense in travel.expenses.select_related('transport').filter(is_cancelled=False):
+            amount=ZERO
+            if expense.kind=='mileage':
+                if not expense.transport or not expense.transport.has_mileage_cost or travel.route.distance_km<=0:
+                    raise ValidationError('Ελέγξτε μέσο και χιλιόμετρα ΙΧ.')
+                rate_value=travel.mileage_override
+                if rate_value is None or rate_value<=0:
+                    rate=unique_rate(MileageRate,valid_from__lte=start,valid_to__gte=start)
+                    rate_value=rate.amount_per_km
+                    details['rates'].append({'type':'mileage','id':rate.pk,'amount':str(rate_value)})
+                amount=rounded(travel.route.distance_km*rate_value);mileage+=amount
+            elif expense.kind in ('ticket','other'):
+                if expense.estimated_amount is None or expense.estimated_amount<0:raise ValidationError('Λείπει ποσό δαπάνης.')
+                amount=expense.estimated_amount
+                if expense.kind=='ticket':
+                    if not expense.transport or not expense.transport.has_ticket_cost:raise ValidationError('Μη έγκυρο μέσο εισιτηρίου.')
+                    tickets+=amount;other+=expense.estimated_transfer_cost or ZERO
+                else:other+=amount
+            else:raise ValidationError('Άγνωστο είδος δαπάνης.')
+            details['expenses'].append({'id':expense.pk,'amount':str(amount),'airport_transfer':str(expense.estimated_transfer_cost or ZERO)})
     seen=set()
     for night in travel.overnights.select_related('accommodation_type','stop').order_by('date'):
         if night.date in seen or not travel.departure_at<=night.date<travel.return_at or night.stop.route_id!=travel.route_id:
@@ -141,6 +158,6 @@ def calculate_estimate(travel_id,actor):
     state=input_state(travel)
     details.update(signature=signature(state),source=json.loads(json.dumps(state,default=str)))
     revision=(travel.calculations.filter(stage='estimate').aggregate(n=Max('revision'))['n'] or 0)+1
-    snapshot=CalculationSnapshot(travel=travel,stage='estimate',revision=revision,calculated_by=actor,algorithm_version='estimate-2',inputs=details,daily_domestic=domestic,daily_abroad=abroad,mileage=mileage,tickets=tickets,other=other,claimed_accommodation=claimed,allowed_accommodation=allowed,total=total,document_budget=budget)
+    snapshot=CalculationSnapshot(travel=travel,stage='estimate',revision=revision,calculated_by=actor,algorithm_version='estimate-3',inputs=details,daily_domestic=domestic,daily_abroad=abroad,mileage=mileage,tickets=tickets,other=other,claimed_accommodation=claimed,allowed_accommodation=allowed,total=total,document_budget=budget)
     snapshot.full_clean();snapshot.save()
     return snapshot

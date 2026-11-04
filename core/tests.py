@@ -919,3 +919,50 @@ class TripYearDropdownTests(TravelCostEntryTests):
         from .travel_search import TravelSearchForm
         Travel.objects.filter(pk=self.travel.pk).update(return_at=date(2027,1,2))
         self.assertEqual(list(TravelSearchForm(user=self.user).fields['year'].choices)[1:],[(2027,'2027'),(2026,'2026')])
+
+
+class SingleTransportTests(EstimateCalculationTests):
+    def test_combined_mode_calculates_both_components_once(self):
+        from .models import TransportMode
+        from .calculation import calculate_estimate
+        mode=TransportMode.objects.create(name='Car and ferry',code='CF',has_mileage_cost=True,has_ticket_cost=True)
+        self.travel.transport=mode;self.travel.transport_configured=True;self.travel.ticket_cost=Decimal('120');self.travel.transfer_cost=Decimal('10');self.travel.save()
+        result=calculate_estimate(self.travel.pk,self.user)
+        self.assertEqual(result.mileage,Decimal('80'))
+        self.assertEqual(result.tickets,Decimal('120'))
+        self.assertEqual(result.other,Decimal('10'))
+        self.assertEqual(result.total,Decimal('410'))
+
+    def test_no_cost_mode_ignores_legacy_charges(self):
+        from .models import TransportMode
+        from .calculation import calculate_estimate
+        mode=TransportMode.objects.create(name='Service car',code='SC')
+        self.travel.transport=mode;self.travel.transport_configured=True;self.travel.save()
+        result=calculate_estimate(self.travel.pk,self.user)
+        self.assertEqual(result.mileage,0)
+        self.assertEqual(result.tickets,0)
+        self.assertEqual(result.other,0)
+
+    def test_single_transport_form_and_server_flags(self):
+        from .models import TransportMode
+        mode=TransportMode.objects.create(name='Private car',code='PC',has_mileage_cost=True)
+        self.travel.transport=mode;self.travel.transport_configured=True;self.travel.save()
+        self.client.force_login(self.user)
+        response=self.client.get(f'/travels/{self.travel.pk}/')
+        self.assertNotContains(response,'name="expenses-0-kind"')
+        payload={'transport_section':'1','employee':self.employee.pk,'route':self.route.pk,'departure_at':'03/11/2026','return_at':'05/11/2026','work_starts_at':'03/11/2026','work_ends_at':'05/11/2026','transport':mode.pk,'ticket_cost':'999','transfer_cost':'999'}
+        self.assertEqual(self.client.post(f'/travels/{self.travel.pk}/edit/',payload).status_code,302)
+        self.travel.refresh_from_db()
+        self.assertIsNone(self.travel.ticket_cost)
+        self.assertIsNone(self.travel.transfer_cost)
+        self.assertEqual(self.travel.calculations.latest('revision').tickets,0)
+
+    def test_ticket_mode_requires_ticket_amount(self):
+        from .models import TransportMode
+        mode=TransportMode.objects.create(name='Airplane',code='AIR',has_ticket_cost=True)
+        self.travel.transport=mode;self.travel.transport_configured=True;self.travel.save()
+        self.client.force_login(self.user)
+        payload={'transport_section':'1','employee':self.employee.pk,'route':self.route.pk,'departure_at':'03/11/2026','return_at':'05/11/2026','work_starts_at':'03/11/2026','work_ends_at':'05/11/2026','transport':mode.pk}
+        response=self.client.post(f'/travels/{self.travel.pk}/edit/',payload)
+        self.assertEqual(response.status_code,200)
+        self.assertIn('ticket_cost',response.context['form'].errors)

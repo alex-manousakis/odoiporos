@@ -4,15 +4,23 @@ from . import models as m
 
 
 class TravelForm(forms.ModelForm):
+    confirm_transport_replacement = forms.BooleanField(label='Επιβεβαιώνω την αντικατάσταση των παλιών επιμέρους εκτιμήσεων με το επιλεγμένο μέσο και ποσά',required=False)
     class Meta:
         model = m.Travel
-        fields = ['employee','route','departure_at','return_at','work_starts_at','work_ends_at','protocol_number','protocol_date','reason','purpose','actions_description','notes']
+        fields = ['employee','route','departure_at','return_at','work_starts_at','work_ends_at','protocol_number','protocol_date','reason','purpose','actions_description','notes','transport','ticket_cost','transfer_cost']
         labels = {'employee':'Εργαζόμενος','route':'Διαδρομή','departure_at':'Αναχώρηση','return_at':'Επιστροφή','work_starts_at':'Έναρξη εργασιών','work_ends_at':'Λήξη εργασιών','reason':'Αιτία','purpose':'Σκοπός','notes':'Παρατηρήσεις'}
         widgets = {name:GreekDateInput() for name in ['departure_at','return_at','work_starts_at','work_ends_at']}
         widgets.update(protocol_date=GreekDateInput(),actions_description=forms.Textarea(attrs={'rows':3}),purpose=forms.Textarea(attrs={'rows':3}),notes=forms.Textarea(attrs={'rows':2}))
 
     def __init__(self,*args,user,**kwargs):
         super().__init__(*args,**kwargs)
+        self.fields['transport'].label='Μέσο μετακίνησης'
+        self.fields['ticket_cost'].label='Κόστος εισιτηρίων (€)'
+        self.fields['transfer_cost'].label='Μετρό / ταξί από και προς αεροδρόμιο (€)'
+        self.fields['transport'].queryset=m.TransportMode.objects.filter(m.models.Q(is_active=True)|m.models.Q(pk=self.instance.transport_id)).order_by('name')
+        legacy=self.instance.expenses.filter(is_cancelled=False) if self.instance.pk else m.TravelExpense.objects.none()
+        self.legacy_transport_review=not self.instance.transport_configured and (legacy.filter(kind='other').exists() or legacy.values('transport_id').distinct().count()>1)
+        if not self.legacy_transport_review:self.fields.pop('confirm_transport_replacement')
         self.fields['protocol_number'].label='Αριθμός πρωτοκόλλου'
         self.fields['protocol_date'].label='Ημερομηνία πρωτοκόλλου'
         self.fields['actions_description'].label='Περιγραφή πεπραγμένων'
@@ -25,6 +33,22 @@ class TravelForm(forms.ModelForm):
 
     def clean(self):
         data=super().clean()
+        if 'transport_section' in self.data or data.get('transport') or self.instance.transport_configured:
+            transport=data.get('transport')
+            if not transport:self.add_error('transport','Επιλέξτε μέσο μετακίνησης.')
+            else:
+                if transport.has_mileage_cost:
+                    route=data.get('route')
+                    if route and route.distance_km<=0:self.add_error('route','Η διαδρομή πρέπει να έχει θετική απόσταση για χιλιομετρική αποζημίωση.')
+                if transport.has_ticket_cost:
+                    if data.get('ticket_cost') is None:self.add_error('ticket_cost','Συμπληρώστε το κόστος εισιτηρίων.')
+                    if data.get('transfer_cost') is None:data['transfer_cost']=0
+                else:
+                    # Unsupported submitted costs cannot influence calculation.
+                    data['ticket_cost']=None;data['transfer_cost']=None
+                if self.legacy_transport_review and not data.get('confirm_transport_replacement'):
+                    self.add_error('confirm_transport_replacement','Ελέγξτε τις παλιές δαπάνες και επιβεβαιώστε τη νέα εκτίμηση.')
+                self.instance.transport_configured=True
         dates=[data.get(n) for n in ['departure_at','work_starts_at','work_ends_at','return_at']]
         if all(dates) and dates != sorted(dates):
             raise forms.ValidationError('Οι ημερομηνίες πρέπει να είναι: αναχώρηση ≤ έναρξη εργασιών ≤ λήξη εργασιών ≤ επιστροφή.')
