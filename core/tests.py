@@ -905,3 +905,17 @@ class GreekDateInputTests(SimpleTestCase):
     def test_snapshot_display(self):
         from .templatetags.greek_dates import greek_date
         self.assertEqual(greek_date('2026-11-04'),'04/11/2026')
+
+
+class TripYearDropdownTests(TravelCostEntryTests):
+    def test_year_dropdown_contains_only_visible_trip_years(self):
+        from .travel_search import TravelSearchForm
+        form=TravelSearchForm(user=self.user)
+        self.assertEqual(list(form.fields['year'].choices)[1:],[(2026,'2026')])
+        self.assertEqual(form.fields['year'].widget.input_type,'select')
+        self.assertNotIn(2025,[value for value,label in form.fields['year'].choices])
+
+    def test_cross_year_trip_includes_both_years(self):
+        from .travel_search import TravelSearchForm
+        Travel.objects.filter(pk=self.travel.pk).update(return_at=date(2027,1,2))
+        self.assertEqual(list(TravelSearchForm(user=self.user).fields['year'].choices)[1:],[(2027,'2027'),(2026,'2026')])

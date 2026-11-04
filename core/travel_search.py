@@ -10,7 +10,7 @@ class TravelSearchForm(forms.Form):
     department=forms.ModelChoiceField(label='Μονάδα',queryset=Department.objects.none(),required=False)
     number=forms.CharField(label='Αριθμός μετακίνησης',required=False)
     protocol=forms.CharField(label='Αριθμός πρωτοκόλλου',required=False)
-    year=forms.IntegerField(label='Έτος ταξιδιού',min_value=1900,max_value=9999,required=False)
+    year=forms.TypedChoiceField(label='\u0388\u03c4\u03bf\u03c2 \u03c4\u03b1\u03be\u03b9\u03b4\u03b9\u03bf\u03cd',coerce=int,empty_value=None,required=False)
     created_on=forms.DateField(label='Ημερομηνία δημιουργίας',required=False,widget=GreekDateInput())
     protocol_on=forms.DateField(label='Ημερομηνία πρωτοκόλλου',required=False,widget=GreekDateInput())
     travel_from=forms.DateField(label='Ταξίδι από',required=False,widget=GreekDateInput())
@@ -24,6 +24,11 @@ class TravelSearchForm(forms.Form):
         super().__init__(*args,**kwargs)
         from .access import employee_scope
         allowed=employee_scope(user)
+        from .views import visible_travels
+        years=set()
+        for first,last in visible_travels(user).order_by().values_list('departure_at__year','return_at__year').distinct():
+            years.update(range(first,last+1))
+        self.fields['year'].choices=[('', '\u038c\u03bb\u03b1 \u03c4\u03b1 \u03ad\u03c4\u03b7')]+[(year,str(year)) for year in sorted(years,reverse=True)]
         self.fields['employee'].queryset=allowed.order_by('display_name')
         self.fields['department'].queryset=Department.objects.filter(employee__in=allowed).distinct().order_by('name')
 

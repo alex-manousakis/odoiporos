@@ -51,8 +51,7 @@ def navigation(request):
 
     if user.is_authenticated:
         group('travel','Μετακινήσεις',[
-            (can_action(user,'view'),'Μετακινήσεις','home',('home','travel_detail','travel_edit','travel_costs','approval_create','approval_download')),
-            (create,'Νέα μετακίνηση','travel_create',('travel_create',)),
+            (can_action(user,'view'),'Μετακινήσεις','home',('home','travel_create','travel_detail','travel_edit','travel_costs','approval_create','approval_download')),
         ])
         group('routes','Διαδρομές',[
             (user.has_perm('core.view_route'),'Διαχείριση διαδρομών','routes',('routes','route_create','route_edit')),
