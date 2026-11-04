@@ -1,3 +1,4 @@
+from .date_widgets import GreekDateInput
 from django import forms
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
@@ -13,11 +14,11 @@ class AccommodationRateForm(forms.ModelForm):
         model=AccommodationRate
         fields=['category','is_abroad','valid_from','valid_to','minimum_distance_km','standard_limit','expensive_city_limit','island_limit']
         labels={'category':'Κατηγορία εργαζομένου','is_abroad':'Εξωτερικό','valid_from':'Ενεργό από','valid_to':'Ενεργό έως (συμπεριλαμβάνεται)','minimum_distance_km':'Όριο χιλιομέτρων για διανυκτέρευση','standard_limit':'Κανονικό όριο ξενοδοχείου (€)','expensive_city_limit':'Όριο ειδικών πόλεων (€)','island_limit':'Όριο ξενοδοχείου σε νησί (€)'}
-        widgets={name:forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}) for name in ['valid_from','valid_to']}
+        widgets={name:GreekDateInput() for name in ['valid_from','valid_to']}
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        for name in ['valid_from','valid_to']:self.fields[name].input_formats=['%Y-%m-%d']
+        for name in ['valid_from','valid_to']:self.fields[name].input_formats=['%d/%m/%Y','%Y-%m-%d']
         parameters=ApplicationParameters.objects.filter(pk=1).first()
         if parameters:
             self.fields['expensive_city_limit'].help_text='Ελλάδα: '+parameters.expensivecitiesingreece+' · Εξωτερικό: '+parameters.expensivecitiesabroad

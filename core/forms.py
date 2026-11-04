@@ -1,3 +1,4 @@
+from .date_widgets import GreekDateInput
 from django import forms
 from . import models as m
 
@@ -7,8 +8,8 @@ class TravelForm(forms.ModelForm):
         model = m.Travel
         fields = ['employee','route','departure_at','return_at','work_starts_at','work_ends_at','protocol_number','protocol_date','reason','purpose','actions_description','notes']
         labels = {'employee':'Εργαζόμενος','route':'Διαδρομή','departure_at':'Αναχώρηση','return_at':'Επιστροφή','work_starts_at':'Έναρξη εργασιών','work_ends_at':'Λήξη εργασιών','reason':'Αιτία','purpose':'Σκοπός','notes':'Παρατηρήσεις'}
-        widgets = {name:forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}) for name in ['departure_at','return_at','work_starts_at','work_ends_at']}
-        widgets.update(protocol_date=forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}),actions_description=forms.Textarea(attrs={'rows':3}),purpose=forms.Textarea(attrs={'rows':3}),notes=forms.Textarea(attrs={'rows':2}))
+        widgets = {name:GreekDateInput() for name in ['departure_at','return_at','work_starts_at','work_ends_at']}
+        widgets.update(protocol_date=GreekDateInput(),actions_description=forms.Textarea(attrs={'rows':3}),purpose=forms.Textarea(attrs={'rows':3}),notes=forms.Textarea(attrs={'rows':2}))
 
     def __init__(self,*args,user,**kwargs):
         super().__init__(*args,**kwargs)
@@ -20,7 +21,7 @@ class TravelForm(forms.ModelForm):
         self.fields['route'].queryset=m.Route.objects.filter(is_active=True).order_by('name')
         self.fields['reason'].queryset=m.TravelReason.objects.filter(is_active=True).order_by('name')
         for name in ['departure_at','return_at','work_starts_at','work_ends_at']:
-            self.fields[name].input_formats=['%Y-%m-%d']
+            self.fields[name].input_formats=['%d/%m/%Y','%Y-%m-%d']
 
     def clean(self):
         data=super().clean()
@@ -93,12 +94,12 @@ class OvernightForm(forms.ModelForm):
         model=m.OvernightStay
         fields=['date','stop','accommodation_type','estimated_cost']
         labels={'date':'Νύχτα διαμονής','stop':'Τόπος διαμονής','accommodation_type':'Τύπος διαμονής','estimated_cost':'Εκτιμώμενο κόστος (€)'}
-        widgets={'date':forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'})}
+        widgets={'date':GreekDateInput()}
 
     def __init__(self,*args,travel,**kwargs):
         self.travel=travel
         super().__init__(*args,**kwargs)
-        self.fields['date'].input_formats=['%Y-%m-%d']
+        self.fields['date'].input_formats=['%d/%m/%Y','%Y-%m-%d']
         self.fields['stop'].queryset=travel.route.stops.all() if travel.route_id else m.RouteStop.objects.none()
         self.fields['stop'].label_from_instance=lambda stop:stop.city
         self.fields['accommodation_type'].queryset=m.AccommodationType.objects.filter(is_active=True).order_by('name')

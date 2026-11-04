@@ -1,3 +1,4 @@
+from .date_widgets import GreekDateInput
 from datetime import timedelta
 from django import forms
 from django.contrib.auth import get_user_model
@@ -17,17 +18,17 @@ def employees_for(user):
 
 class EmployeeForm(forms.ModelForm):
     new_category=forms.ModelChoiceField(label='Νέα κατηγορία (προαιρετική αλλαγή)',queryset=EmployeeCategory.objects.filter(is_active=True),required=False)
-    category_from=forms.DateField(label='Ισχύει από',required=False,widget=forms.DateInput(attrs={'type':'date'},format='%Y-%m-%d'),input_formats=['%Y-%m-%d'])
+    category_from=forms.DateField(label='Ισχύει από',required=False,widget=GreekDateInput(),input_formats=['%d/%m/%Y','%Y-%m-%d'])
 
     class Meta:
         model=Employee
         fields=['code','first_name','last_name','display_name','name_genitive','gender','department','speciality','position','id_number','tax_number','father_name','mother_name','birth_place','birth_date','phone','city','address','address_number','postal_code','fax','email','driving_license','car_brand','iban','car_plate','is_active','user']
-        widgets={'birth_date':forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'})}
+        widgets={'birth_date':GreekDateInput()}
         labels={'code':'Κωδικός','first_name':'Όνομα','last_name':'Επώνυμο','display_name':'Ονοματεπώνυμο','name_genitive':'Ονοματεπώνυμο σε γενική','department':'Μονάδα','speciality':'Ειδικότητα','position':'Θέση','email':'Email','iban':'IBAN','car_plate':'Αριθμός κυκλοφορίας ΙΧ','is_active':'Ενεργός','user':'Λογαριασμός χρήστη'}
 
     def __init__(self,*args,actor,**kwargs):
         super().__init__(*args,**kwargs)
-        self.fields['birth_date'].input_formats=['%Y-%m-%d']
+        self.fields['birth_date'].input_formats=['%d/%m/%Y','%Y-%m-%d']
         if not actor.is_superuser:
             # Linking another login to an employee also changes access to travel data.
             self.fields['user'].disabled=True

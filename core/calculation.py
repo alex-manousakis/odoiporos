@@ -28,7 +28,7 @@ def unique_rate(model,**filters):
         criteria.append('εξωτερικό' if filters['is_abroad'] else 'Ελλάδα')
     start=filters.get('valid_from__lte');end=filters.get('valid_to__gte')
     if start:
-        criteria.append(str(start) if start==end else str(start)+' έως '+str(end))
+        criteria.append(start.strftime('%d/%m/%Y') if start==end else start.strftime('%d/%m/%Y')+' έως '+end.strftime('%d/%m/%Y'))
     description=labels.get(model._meta.model_name,model._meta.model_name)+': '+', '.join(criteria)
     if not rows:
         raise ValidationError('Δεν βρέθηκε ισχύουσα τιμή. '+description+'. Συμπληρώστε τιμή που καλύπτει τις ημερομηνίες της μετακίνησης.')

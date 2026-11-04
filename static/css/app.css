@@ -6,7 +6,7 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 @media(max-width:1000px){.desktop-columns{grid-template-columns:1fr}.sidebar{width:180px}.workspace{margin-left:180px}}
 @media(max-width:650px){.sidebar{position:static;width:auto;padding:18px;gap:16px}.workspace{margin-left:0}.account{margin-top:0}.desktop-columns,.panel .form-grid{grid-template-columns:1fr}main{padding:0 12px}.topbar{padding:12px}.brand{font-size:21px}}
 
-.stay-table{min-width:750px}.stay-table th{background:#e4edf6;font-size:13px}.stay-table td{padding:9px;vertical-align:top}.stay-table input:disabled{background:#edf1f5;color:#7c8996;cursor:not-allowed}.stay-table input[type=date]{min-width:145px}.stay-table select{min-width:160px}
+.stay-table{min-width:750px}.stay-table th{background:#e4edf6;font-size:13px}.stay-table td{padding:9px;vertical-align:top}.stay-table input:disabled{background:#edf1f5;color:#7c8996;cursor:not-allowed}.stay-table input[data-greek-date]{min-width:145px}.stay-table select{min-width:160px}
 
 .route-stops{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.route-stops fieldset{min-width:0}.route-stops legend{font-weight:600}
 
@@ -33,3 +33,17 @@ body{background:#eef2f7;font-size:14px}.sidebar{position:fixed;inset:0 auto 0 0;
 .sidebar .account{padding-top:16px;border-top:1px solid #3f6078;flex-shrink:0;font-size:13px}
 
 .trip-list-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.trip-list-toolbar button:disabled{opacity:.45;cursor:default}.secondary{background:#526d81}.search-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px}.search-fields ul{list-style:none;padding:0}.travel-search summary{font-weight:600;cursor:pointer;margin-bottom:14px}.trip-list{min-width:1250px}.trip-list td{padding:10px;vertical-align:top}.trip-list tr.selected{background:#e2f1fb}.trip-actions a{display:block;margin-bottom:8px;white-space:nowrap}
+
+/* Compact trip search and consistent action controls. */
+.trip-list-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:2px 0;margin-bottom:18px}
+.trip-list-toolbar>.button,.trip-list-toolbar>button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:42px;margin:0;padding:10px 16px;font:inherit;font-weight:600;line-height:20px;border:1px solid transparent;text-decoration:none;vertical-align:middle}
+.search-groups{display:grid;grid-template-columns:minmax(150px,.65fr) minmax(200px,1fr) minmax(280px,1.4fr) minmax(240px,1.2fr);gap:12px;max-width:1300px;margin-bottom:14px}
+.search-group{min-width:0;margin:0;padding:12px;background:#f7f9fc;border:1px solid #d8e2eb;border-radius:7px}
+.search-group legend{padding:0 5px;font-size:13px;font-weight:600;color:#24445d}
+.search-group .field{min-width:0;margin-bottom:8px}.search-group label{font-size:12px}.search-group input,.search-group select{padding:7px;font-size:13px}.search-group ul{list-style:none;margin:0;padding:0}.search-group input[type=checkbox]{width:auto}.search-group #id_year{max-width:100px}
+.compact-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px}
+.trip-list .trip-actions{white-space:nowrap;width:116px}.trip-list .trip-actions .trip-icon{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:32px;height:32px;padding:0;margin:0 2px 0 0;border:1px solid #cddce7;border-radius:5px;background:#f3f8fb;vertical-align:middle;color:#235e7d}.trip-icon:hover{background:#deedf7!important}.trip-icon:focus-visible{outline:2px solid #14658a;outline-offset:2px}
+@media(max-width:1250px){.search-groups{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.search-groups{grid-template-columns:minmax(0,1fr)}.trip-list-toolbar{gap:8px}}
+
+.date-with-calendar{position:relative;display:flex;align-items:stretch;width:100%;min-width:0}.date-with-calendar>input[data-greek-date]{flex:1;min-width:0;width:0;border-radius:5px 0 0 5px}.date-with-calendar>.calendar-button{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;min-width:36px;margin:0;padding:0;background:#e6eff6;color:#24536f;border:1px solid #aab8c5;border-left:0;border-radius:0 5px 5px 0;cursor:pointer}.calendar-button:hover{background:#d4e5f2}.calendar-button:focus-visible{outline:2px solid #14658a;outline-offset:2px}.date-with-calendar>.native-date-picker{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;padding:0;border:0}.date-with-calendar>.native-date-fallback{position:static;opacity:1;pointer-events:auto;width:150px;height:auto;padding:6px;border:1px solid #aab8c5}

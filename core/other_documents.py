@@ -1,3 +1,4 @@
+from .date_widgets import GreekDateInput
 from io import BytesIO
 from xml.sax.saxutils import escape
 from django import forms
@@ -16,7 +17,7 @@ from .views import visible_travels
 
 class DocumentForm(forms.Form):
     kind=forms.ChoiceField(label='Έγγραφο',choices=[('car','Υπεύθυνη δήλωση χρήσης ΙΧ'),('friends','Υπεύθυνη δήλωση διαμονής σε φιλικό σπίτι'),('activity','Έκθεση πεπραγμένων')])
-    print_date=forms.DateField(label='Ημερομηνία εγγράφου',widget=forms.DateInput(format='%Y-%m-%d',attrs={'type':'date'}),input_formats=['%Y-%m-%d'])
+    print_date=forms.DateField(label='Ημερομηνία εγγράφου',widget=GreekDateInput(),input_formats=['%d/%m/%Y','%Y-%m-%d'])
 
 
 def document_pdf(travel,kind,print_date):

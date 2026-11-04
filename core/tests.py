@@ -458,7 +458,7 @@ class EmployeeDeclarationDetailsTests(EmployeeManagementTests):
         self.assertEqual(employee.driving_license,'LICENSE-123')
         response=self.client.get(f'/employees/{employee.pk}/edit/')
         self.assertContains(response,'AB123456')
-        self.assertContains(response,'1980-02-03')
+        self.assertContains(response,'03/02/1980')
 
 
 class EstimateCalculationTests(TestCase):
@@ -888,3 +888,20 @@ class OtherDocumentTests(ApprovalPDFTests):
         outsider.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='print_travel'))
         self.client.force_login(outsider)
         self.assertEqual(self.client.get(f'/travels/{self.travel.pk}/documents/').status_code,404)
+
+
+class GreekDateInputTests(SimpleTestCase):
+    def test_display_and_submission(self):
+        from .date_widgets import GreekDateInput
+        from django import forms
+        class Sample(forms.Form):
+            day=forms.DateField(widget=GreekDateInput(),input_formats=['%Y-%m-%d'])
+        form=Sample({'day':'04/11/2026'})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['day'],date(2026,11,4))
+        self.assertIn('04/11/2026',str(Sample(initial={'day':date(2026,11,4)})))
+        self.assertFalse(Sample({'day':'31/02/2026'}).is_valid())
+
+    def test_snapshot_display(self):
+        from .templatetags.greek_dates import greek_date
+        self.assertEqual(greek_date('2026-11-04'),'04/11/2026')

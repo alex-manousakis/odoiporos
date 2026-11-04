@@ -1,3 +1,4 @@
+from .date_widgets import GreekDateInput
 from django import forms
 from django.db.models import Q
 from .models import Employee, Department, TravelStatus
@@ -10,10 +11,10 @@ class TravelSearchForm(forms.Form):
     number=forms.CharField(label='Αριθμός μετακίνησης',required=False)
     protocol=forms.CharField(label='Αριθμός πρωτοκόλλου',required=False)
     year=forms.IntegerField(label='Έτος ταξιδιού',min_value=1900,max_value=9999,required=False)
-    created_on=forms.DateField(label='Ημερομηνία δημιουργίας',required=False,widget=forms.DateInput(attrs={'type':'date'}))
-    protocol_on=forms.DateField(label='Ημερομηνία πρωτοκόλλου',required=False,widget=forms.DateInput(attrs={'type':'date'}))
-    travel_from=forms.DateField(label='Ταξίδι από',required=False,widget=forms.DateInput(attrs={'type':'date'}))
-    travel_to=forms.DateField(label='Ταξίδι έως',required=False,widget=forms.DateInput(attrs={'type':'date'}))
+    created_on=forms.DateField(label='Ημερομηνία δημιουργίας',required=False,widget=GreekDateInput())
+    protocol_on=forms.DateField(label='Ημερομηνία πρωτοκόλλου',required=False,widget=GreekDateInput())
+    travel_from=forms.DateField(label='Ταξίδι από',required=False,widget=GreekDateInput())
+    travel_to=forms.DateField(label='Ταξίδι έως',required=False,widget=GreekDateInput())
     purpose=forms.CharField(label='Σκοπός μετακίνησης',required=False)
     actions=forms.CharField(label='Περιγραφή πεπραγμένων',required=False)
     destination=forms.CharField(label='Προορισμός',required=False)
