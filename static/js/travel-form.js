@@ -7,6 +7,24 @@ function parseGreekDate(value){
  return result.toISOString().slice(0,10);
 }
 function formatGreekDate(value){const [year,month,day]=value.split('-');return `${day}/${month}/${year}`;}
+// Double-click date shortcuts from the desktop travel form.
+for(const [targetId,sourceId] of [
+ ['id_return_at','id_departure_at'],
+ ['id_work_starts_at','id_departure_at'],
+ ['id_work_ends_at','id_return_at']
+]){
+ const target=document.getElementById(targetId);
+ const source=document.getElementById(sourceId);
+ if(!target||!source)continue;
+ target.addEventListener('dblclick',()=>{
+  if(target.matches(':disabled')||target.readOnly)return;
+  const value=parseGreekDate(source.value);
+  if(!value)return;
+  target.value=formatGreekDate(value);
+  target.dispatchEvent(new Event('input',{bubbles:true}));
+  target.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+}
 const routes=JSON.parse(document.getElementById('routes-data').textContent);
 const routeSelect=document.getElementById('id_route');
 const search=document.getElementById('route-search');
