@@ -6,7 +6,7 @@ from .models import Employee, Department, TravelStatus
 
 class TravelSearchForm(forms.Form):
     statuses=forms.ModelMultipleChoiceField(label='Κατάσταση',queryset=TravelStatus.objects.all(),required=False,widget=forms.CheckboxSelectMultiple)
-    employee=forms.ModelChoiceField(label='Εργαζόμενος',queryset=Employee.objects.none(),required=False)
+    employee=forms.ModelChoiceField(label='Εργαζόμενος',queryset=Employee.objects.none(),required=False,empty_label='Όλοι οι εργαζόμενοι')
     department=forms.ModelChoiceField(label='Μονάδα',queryset=Department.objects.none(),required=False)
     number=forms.CharField(label='Αριθμός μετακίνησης',required=False)
     protocol=forms.CharField(label='Αριθμός πρωτοκόλλου',required=False)

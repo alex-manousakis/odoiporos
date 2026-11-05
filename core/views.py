@@ -18,11 +18,16 @@ def home(request,accounting=False):
     from django.core.paginator import Paginator
     from django.db.models import OuterRef, Subquery, DecimalField
     from .models import CalculationSnapshot
-    form=TravelSearchForm(request.GET,user=request.user)
+    filters=request.GET.copy()
+    if 'employee' not in filters:
+        from .access import employee_scope
+        own=employee_scope(request.user).filter(user=request.user).first()
+        if own:filters['employee']=str(own.pk)
+    form=TravelSearchForm(filters,user=request.user)
     latest=CalculationSnapshot.objects.filter(travel_id=OuterRef('pk'),stage='estimate').order_by('-revision')
     qs=form.apply(visible_travels(request.user)).select_related('employee__department','reason').annotate(estimated_total=Subquery(latest.values('total')[:1],output_field=DecimalField(max_digits=14,decimal_places=2))).order_by('-departure_at','-pk')
     page=Paginator(qs,30).get_page(request.GET.get('page'))
-    query=request.GET.copy();query.pop('page',None)
+    query=filters.copy();query.pop('page',None)
     return render(request,'core/home.html',{'list_title':'Μετακινήσεις (Λογιστήριο)' if accounting else 'Μετακινήσεις','new_travel_route':'core:accounting_create' if accounting else 'core:travel_create','detail_route':'core:accounting_edit' if accounting else 'core:travel_detail','home_route':'core:accounting_home' if accounting else 'core:home','travels':page,'page':page,'search_form':form,'filter_query':query.urlencode()})
 
 
@@ -136,8 +141,8 @@ def travel_detail(request,pk):
 
 
 def can_edit_costs(user,travel):
-    from .access import can_action, employee_scope
-    allowed=can_action(user,'change') and employee_scope(user).filter(pk=travel.employee_id).exists()
+    from .access import can_modify_travel
+    allowed=can_modify_travel(user,travel)
     from .models import AccountingAdjustment
     from .accounting import can_adjust_calculations
     if AccountingAdjustment.objects.filter(travel=travel,is_active=True).exists() and not can_adjust_calculations(user):

@@ -56,3 +56,13 @@ leave the previous adjustment intact. Adjustments participate in snapshot freshn
 checks and are included in the application audit trail. Normal trip form submissions
 cannot write override fields. This currently applies to estimated calculations;
 the future actual settlement workflow must deliberately integrate these rules.
+
+## Viewing versus modifying trips
+
+Department/all scope grants visibility, not the right to create or modify another
+employee's trip. Without accounting authorization, the employee selector contains
+only the employee linked to the signed-in user, and server-side write checks restrict
+editing and recalculation to that employee. Generic trip Add/Change/Delete grants do
+not override this ownership rule. Accounting authorization permits writing other
+employees' trips only within the existing scope. Superusers retain administration
+access; approval/frozen-state restrictions still apply.

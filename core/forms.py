@@ -25,8 +25,8 @@ class TravelForm(GreekNumberFormMixin, forms.ModelForm):
         self.fields['protocol_number'].label='Αριθμός πρωτοκόλλου'
         self.fields['protocol_date'].label='Ημερομηνία πρωτοκόλλου'
         self.fields['actions_description'].label='Περιγραφή πεπραγμένων'
-        from .access import employee_scope
-        self.fields['employee'].queryset=employee_scope(user).filter(is_active=True).order_by('display_name')
+        from .access import writable_employees
+        self.fields['employee'].queryset=writable_employees(user).filter(is_active=True).order_by('display_name')
         if not self.instance.pk:
             own=self.fields['employee'].queryset.filter(user=user).first()
             if own and not self.initial.get('employee'):self.initial['employee']=own.pk

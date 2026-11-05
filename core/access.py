@@ -25,6 +25,17 @@ def employee_scope(user):
     return qs.filter(user=user)
 
 
+def writable_employees(user):
+    """Viewing another employee's trips does not grant authority to change them."""
+    scope=employee_scope(user)
+    from .accounting import can_adjust_calculations
+    return scope if user.is_superuser or can_adjust_calculations(user) else scope.filter(user=user)
+
+
+def can_modify_travel(user,travel,action='change'):
+    return can_action(user,action) and writable_employees(user).filter(pk=travel.employee_id).exists()
+
+
 def can_action(user,action):
     if not user.is_authenticated or not user.is_active:
         return False
