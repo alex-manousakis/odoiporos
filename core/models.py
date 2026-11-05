@@ -482,3 +482,17 @@ class AuditEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError('Τα συμβάντα δραστηριότητας δεν διαγράφονται από την εφαρμογή.')
+
+
+class AccountingAdjustment(models.Model):
+    travel = models.OneToOneField(Travel, on_delete=models.PROTECT, related_name='accounting_adjustment')
+    is_active = models.BooleanField('Ενεργές προσαρμογές', default=True)
+    values = models.JSONField(default=dict, blank=True)
+    reason = models.TextField('Αιτιολογία')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        default_permissions = ('view','add','change')
+        verbose_name = 'Μετακινήσεις (Λογιστήριο)'
+        verbose_name_plural = 'Μετακινήσεις (Λογιστήριο)'

@@ -133,7 +133,7 @@ def generate_approval(travel_id,user,signatory):
       'preamble':preamble,'budget_rows':budget_rows,'budget_text':'\n'.join(x['text'] for x in budget_rows),'budget':greek_number(estimate.document_budget),
       'departure':fmt(travel.departure_at),'return':fmt(travel.return_at),'work_start':fmt(travel.work_starts_at),'work_end':fmt(travel.work_ends_at),
       'destination':travel.route.destination,'transport':travel.transport.name if travel.transport_configured and travel.transport_id else ', '.join(dict.fromkeys(e.transport.name for e in travel.expenses.select_related('transport').filter(is_cancelled=False) if e.transport)),
-      'away_days':days,'overnights':travel.overnights.filter(is_excluded=False).count(),'annual_prior':prior_days,'annual_balance':balance,'annual_used':total_days,'annual_limit':parameters.allowedtravelsperyear,'annual_remaining':parameters.allowedtravelsperyear-total_days,
+      'away_days':days,'overnights':estimate.inputs.get('display_overnights',travel.overnights.filter(is_excluded=False).count()),'annual_prior':prior_days,'annual_balance':balance,'annual_used':total_days,'annual_limit':parameters.allowedtravelsperyear,'annual_remaining':parameters.allowedtravelsperyear-total_days,
       'signatory':{'id':signatory.pk,'name':signatory.name,'speciality':signatory.speciality},'signature_heading':heading,'calculation_id':estimate.pk}
     data=render_pdf(source)
     return ApprovalDocument.objects.create(travel=travel,calculation=estimate,created_by=user,content=data,sha256=hashlib.sha256(data).hexdigest(),source=source)

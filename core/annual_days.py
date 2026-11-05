@@ -7,6 +7,9 @@ from .models import Travel
 
 def counted_days(travel, snapshot, year):
     data=snapshot.inputs
+    manual=data.get('accounting',{}).get('values',{}).get('days')
+    if manual is not None and travel.departure_at.year==travel.return_at.year:
+        return int(manual) if year==travel.departure_at.year else 0
     source=data.get('source',{})
     route=(source.get('route') or [{}])[0]
     parameters=source.get('parameters') or {}

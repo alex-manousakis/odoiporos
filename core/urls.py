@@ -18,3 +18,6 @@ urlpatterns += [path('daily-allowances/',daily_allowances.rate_list,name='daily_
 
 from .activity import activity
 urlpatterns += [path('activity/', activity, name='activity')]
+
+from . import accounting
+urlpatterns += [path('accounting/travels/',accounting.accounting_home,name='accounting_home'),path('accounting/travels/new/',accounting.accounting_create,name='accounting_create'),path('accounting/travels/<int:pk>/',accounting.accounting_edit,name='accounting_edit'),path('accounting/travels/<int:pk>/adjustment/',accounting.accounting_adjustment,name='accounting_adjustment')]

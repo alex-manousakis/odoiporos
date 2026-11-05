@@ -40,6 +40,8 @@ def unique_rate(model,**filters):
 def input_state(travel):
     # Snapshot only calculation inputs, not employee personal or banking information.
     fields=['employee_id','route_id','departure_at','return_at','work_starts_at','work_ends_at','applied_category_id','category_review_required','mileage_override','transport_id','transport_configured','ticket_cost','transfer_cost']
+    from .accounting import adjustment_state
+    adjustment=adjustment_state(travel)
     parameters=ApplicationParameters.objects.filter(pk=1).values('homedistancelimit','percentageofbudgetinc','roundtotalbudget','budgetdownlimit').first()
     return {'travel':{n:str(getattr(travel,n)) for n in fields},
         'route':list(travel.route.__class__.objects.filter(pk=travel.route_id).values('distance_km','is_abroad','has_daily_allowance','requires_review')),
@@ -49,6 +51,7 @@ def input_state(travel):
         'category_history':list(travel.employee.category_history.values('category_id','valid_from','valid_to')),
         'transport_flags':{'mileage':travel.transport.has_mileage_cost,'ticket':travel.transport.has_ticket_cost} if travel.transport_id else None,
         'parameters':parameters,
+        **({'accounting_adjustment':adjustment} if adjustment else {}),
         'daily_rates':list(DailyAllowanceRate.objects.order_by('pk').values()),
         'hotel_rates':list(AccommodationRate.objects.order_by('pk').values()),
         'mileage_rates':list(MileageRate.objects.order_by('pk').values())}
@@ -156,6 +159,9 @@ def calculate_estimate(travel_id,actor):
     budget=total*(1+(params.percentageofbudgetinc or ZERO)/100)
     budget=budget.quantize(Decimal('1'),rounding=ROUND_CEILING) if params.roundtotalbudget else rounded(budget)
     budget=rounded(max(budget,params.budgetdownlimit or ZERO))
+    from .accounting import apply_adjustment
+    amounts=apply_adjustment(travel,actor,details,dict(daily_domestic=domestic,daily_abroad=abroad,mileage=mileage,tickets=tickets,other=other,claimed_accommodation=claimed,allowed_accommodation=allowed,total=total,document_budget=budget),params)
+    domestic=amounts['daily_domestic'];abroad=amounts['daily_abroad'];mileage=amounts['mileage'];tickets=amounts['tickets'];other=amounts['other'];claimed=amounts['claimed_accommodation'];allowed=amounts['allowed_accommodation'];total=amounts['total'];budget=amounts['document_budget']
     state=input_state(travel)
     details.update(signature=signature(state),source=json.loads(json.dumps(state,default=str)))
     revision=(travel.calculations.filter(stage='estimate').aggregate(n=Max('revision'))['n'] or 0)+1

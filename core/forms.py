@@ -27,6 +27,9 @@ class TravelForm(GreekNumberFormMixin, forms.ModelForm):
         self.fields['actions_description'].label='Περιγραφή πεπραγμένων'
         from .access import employee_scope
         self.fields['employee'].queryset=employee_scope(user).filter(is_active=True).order_by('display_name')
+        if not self.instance.pk:
+            own=self.fields['employee'].queryset.filter(user=user).first()
+            if own and not self.initial.get('employee'):self.initial['employee']=own.pk
         self.fields['route'].queryset=m.Route.objects.filter(is_active=True).order_by('name')
         self.fields['reason'].queryset=m.TravelReason.objects.filter(is_active=True).order_by('name')
         for name in ['departure_at','return_at','work_starts_at','work_ends_at']:

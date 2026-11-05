@@ -13,7 +13,7 @@ def visible_travels(user):
 
 
 @login_required
-def home(request):
+def home(request,accounting=False):
     from .travel_search import TravelSearchForm
     from django.core.paginator import Paginator
     from django.db.models import OuterRef, Subquery, DecimalField
@@ -23,7 +23,7 @@ def home(request):
     qs=form.apply(visible_travels(request.user)).select_related('employee__department','reason').annotate(estimated_total=Subquery(latest.values('total')[:1],output_field=DecimalField(max_digits=14,decimal_places=2))).order_by('-departure_at','-pk')
     page=Paginator(qs,30).get_page(request.GET.get('page'))
     query=request.GET.copy();query.pop('page',None)
-    return render(request,'core/home.html',{'travels':page,'page':page,'search_form':form,'filter_query':query.urlencode()})
+    return render(request,'core/home.html',{'list_title':'Μετακινήσεις (Λογιστήριο)' if accounting else 'Μετακινήσεις','new_travel_route':'core:accounting_create' if accounting else 'core:travel_create','detail_route':'core:accounting_edit' if accounting else 'core:travel_detail','home_route':'core:accounting_home' if accounting else 'core:home','travels':page,'page':page,'search_form':form,'filter_query':query.urlencode()})
 
 
 @login_required
@@ -43,7 +43,7 @@ def travel_edit(request,pk):
         return travel_editor(request,travel)
 
 
-def travel_editor(request,travel=None,read_only=False):
+def travel_editor(request,travel=None,read_only=False,accounting=False):
     from .forms import ExpenseFormSet, StayFormSet
     from .models import Route, TravelAttachment, TransportMode, AccommodationType, ApplicationParameters
     from uuid import uuid4
@@ -103,7 +103,7 @@ def travel_editor(request,travel=None,read_only=False):
                     for file in written: file.delete(save=False)
                     raise
                 calculate_after_save(request,parent)
-                return redirect('core:travel_detail',pk=parent.pk)
+                return redirect('core:accounting_edit' if accounting else 'core:travel_detail',pk=parent.pk)
     from .calculation import input_state, signature
     calculation=parent.calculations.filter(stage='estimate').order_by('-revision').first() if parent.pk else None
     calculation_stale=bool(calculation and (calculation.algorithm_version!='estimate-3' or calculation.inputs.get('signature')!=signature(input_state(parent))))
@@ -111,7 +111,10 @@ def travel_editor(request,travel=None,read_only=False):
     from django.conf import settings
     parameters=ApplicationParameters.objects.filter(pk=1).first()
     default_stay=parameters.default_accommodation if parameters else AccommodationType.objects.filter(legacy_id=getattr(settings,"DEFAULT_ACCOMMODATION_LEGACY_ID",None),is_active=True).first()
-    return render(request,'core/travel_form.html',{'read_only':read_only,'calculation':calculation,'calculation_stale':calculation_stale,'form':form,'travel':parent,'expenses':expenses,'stays':stays,'accommodation_options':{'types':list(AccommodationType.objects.filter(is_active=True).values('id','has_cost')),'default':default_stay.pk if default_stay else None},'routes':routes,'transport_modes':list(TransportMode.objects.all().values('id','has_mileage_cost','has_ticket_cost'))})
+    from .models import AccountingAdjustment
+    adjustment_exists=parent.pk and AccountingAdjustment.objects.filter(travel=parent).exists()
+    adjustment_permission='core.change_accountingadjustment' if adjustment_exists else 'core.add_accountingadjustment'
+    return render(request,'core/travel_form.html',{'accounting_mode':accounting,'can_adjust':accounting and not read_only and request.user.has_perm(adjustment_permission),'read_only':read_only,'calculation':calculation,'calculation_stale':calculation_stale,'form':form,'travel':parent,'expenses':expenses,'stays':stays,'accommodation_options':{'types':list(AccommodationType.objects.filter(is_active=True).values('id','has_cost')),'default':default_stay.pk if default_stay else None},'routes':routes,'transport_modes':list(TransportMode.objects.all().values('id','has_mileage_cost','has_ticket_cost'))})
 
 
 @login_required
@@ -137,6 +140,9 @@ def travel_detail(request,pk):
 def can_edit_costs(user,travel):
     from .access import can_action, employee_scope
     allowed=can_action(user,'change') and employee_scope(user).filter(pk=travel.employee_id).exists()
+    from .models import AccountingAdjustment
+    if AccountingAdjustment.objects.filter(travel=travel,is_active=True).exists() and not (user.has_perm('core.view_accountingadjustment') and (user.has_perm('core.change_accountingadjustment') or user.has_perm('core.add_accountingadjustment'))):
+        return False
     return allowed and travel.status.legacy_id==1 and travel.approved_at is None and not travel.calculations.filter(frozen_at__isnull=False).exists()
 
 
