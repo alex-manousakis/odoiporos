@@ -24,7 +24,7 @@ def definition(kind):
 
 
 def reference_form(model):
-    fields=['name']+(['name_genitive'] if model in (Position,Department) else [])+(['responsible','sort_order'] if model is Department else [])+(['speciality'] if model is Signatory else [])+['is_active']
+    fields=['name']+(['name_genitive'] if model in (Position,Department) else [])+(['responsible','sort_order'] if model is Department else [])+(['speciality','is_head'] if model is Signatory else [])+['is_active']
     return forms.modelform_factory(model,fields=fields,labels={'name':'Περιγραφή','name_genitive':'Περιγραφή σε γενική (για τα έγγραφα)','is_active':'Ενεργή εγγραφή'})
 
 
@@ -50,6 +50,9 @@ def reference_edit(request,kind,pk=None):
     model,title=definition(kind)
     if not request.user.has_perm('core.'+('change_' if pk else 'add_')+model._meta.model_name):raise PermissionDenied
     with transaction.atomic():
+        if model is Signatory:
+            # Serialize head changes in the management form.
+            list(Signatory.objects.select_for_update().order_by('pk'))
         record=get_object_or_404(model.objects.select_for_update(),pk=pk) if pk else model()
         form=reference_form(model)(request.POST if request.method=='POST' else None,instance=record)
         if request.method=='POST' and form.is_valid():

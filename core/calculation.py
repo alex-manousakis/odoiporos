@@ -45,7 +45,7 @@ def input_state(travel):
         'route':list(travel.route.__class__.objects.filter(pk=travel.route_id).values('distance_km','is_abroad','has_daily_allowance','requires_review')),
         'stops':list(travel.route.stops.values('id','sequence','is_abroad','compensation_band')),
         'expenses':list(travel.expenses.order_by('pk').values('id','kind','transport_id','transport__has_mileage_cost','transport__has_ticket_cost','estimated_amount','estimated_transfer_cost','estimated_distance_km','is_cancelled')),
-        'nights':list(travel.overnights.order_by('pk').values('id','date','stop_id','city','is_abroad','is_expensive','is_island','compensation_band','accommodation_type__has_cost','estimated_cost')),
+        'nights':list(travel.overnights.order_by('pk').values('id','date','stop_id','city','is_abroad','is_expensive','is_island','compensation_band','accommodation_type__has_cost','estimated_cost','is_excluded')),
         'category_history':list(travel.employee.category_history.values('category_id','valid_from','valid_to')),
         'transport_flags':{'mileage':travel.transport.has_mileage_cost,'ticket':travel.transport.has_ticket_cost} if travel.transport_id else None,
         'parameters':parameters,
@@ -138,6 +138,7 @@ def calculate_estimate(travel_id,actor):
             details['expenses'].append({'id':expense.pk,'amount':str(amount),'airport_transfer':str(expense.estimated_transfer_cost or ZERO)})
     seen=set()
     for night in travel.overnights.select_related('accommodation_type','stop').order_by('date'):
+        if night.is_excluded: continue
         if night.date in seen or not travel.departure_at<=night.date<travel.return_at or night.stop.route_id!=travel.route_id:
             raise ValidationError('Ελέγξτε ημερομηνίες και προορισμούς διαμονής.')
         seen.add(night.date)

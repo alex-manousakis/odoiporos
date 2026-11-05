@@ -22,12 +22,13 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model=Employee
-        fields=['code','first_name','last_name','display_name','name_genitive','gender','department','speciality','position','id_number','tax_number','father_name','mother_name','birth_place','birth_date','phone','city','address','address_number','postal_code','fax','email','driving_license','car_brand','iban','car_plate','is_active','user']
+        fields=['code','first_name','last_name','display_name','name_genitive','gender','department','speciality','position','id_number','tax_number','father_name','mother_name','birth_place','birth_date','phone','city','address','address_number','postal_code','fax','email','driving_license','car_brand','iban','car_plate','opening_travel_days','is_active','user']
         widgets={'birth_date':GreekDateInput()}
         labels={'code':'Κωδικός','first_name':'Όνομα','last_name':'Επώνυμο','display_name':'Ονοματεπώνυμο','name_genitive':'Ονοματεπώνυμο σε γενική','department':'Μονάδα','speciality':'Ειδικότητα','position':'Θέση','email':'Email','iban':'IBAN','car_plate':'Αριθμός κυκλοφορίας ΙΧ','is_active':'Ενεργός','user':'Λογαριασμός χρήστη'}
 
     def __init__(self,*args,actor,**kwargs):
         super().__init__(*args,**kwargs)
+        self.fields['opening_travel_days'].required=False
         for name in ['position','speciality']:
             field=self.fields[name]
             field.queryset=field.queryset.filter(Q(is_active=True)|Q(pk=getattr(self.instance,name+'_id')))
@@ -44,6 +45,9 @@ class EmployeeForm(forms.ModelForm):
                 self.fields['department'].required=True
             elif access.scope=='own':
                 self.fields['department'].disabled=True
+
+    def clean_opening_travel_days(self):
+        return self.cleaned_data.get('opening_travel_days') or 0
 
     def clean(self):
         data=super().clean()

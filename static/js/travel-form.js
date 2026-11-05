@@ -16,15 +16,15 @@ function fillStops(select){const current=select.value;select.replaceChildren(new
 routeSelect.addEventListener('change',()=>document.querySelectorAll('#stays-rows select[name$="-stop"]').forEach(fillStops));
 function addRow(prefix){const total=document.getElementById(`id_${prefix}-TOTAL_FORMS`);const index=Number(total.value);const html=document.getElementById(`${prefix}-empty`).innerHTML.replaceAll('__prefix__',index);document.getElementById(`${prefix}-rows`).insertAdjacentHTML('beforeend',html);total.value=index+1;const row=document.getElementById(`${prefix}-rows`).lastElementChild;if(prefix==='stays'){fillStops(row.querySelector('select[name$="-stop"]'));initializeStay(row);}return row;}
 document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>addRow(b.dataset.add)));
-document.getElementById('generate-nights').addEventListener('click',()=>{const start=parseGreekDate(document.getElementById('id_departure_at').value);const end=parseGreekDate(document.getElementById('id_return_at').value);const message=document.getElementById('night-message');if(!start||!end||end<start||!routeSelect.value){message.textContent='Συμπληρώστε διαδρομή και έγκυρες ημερομηνίες.';return;}const existing=new Set(Array.from(document.querySelectorAll('#stays-rows input[data-greek-date]')).map(i=>parseGreekDate(i.value)));let day=new Date(start+'T00:00:00Z');const finish=new Date(end+'T00:00:00Z');if((finish-day)/86400000>366){message.textContent='Για διάστημα άνω των 366 ημερών χρειάζεται έλεγχος.';return;}while(day<finish){const value=day.toISOString().slice(0,10);if(!existing.has(value)){let row=Array.from(document.querySelectorAll('#stays-rows .stay-row')).find(r=>!r.querySelector('input[data-greek-date]').value);if(!row)row=addRow('stays');fillStops(row.querySelector('select[name$="-stop"]'));row.querySelector('input[data-greek-date]').value=formatGreekDate(value);const stops=row.querySelector('select[name$="-stop"]');if(stops.options.length>1)stops.selectedIndex=1;initializeStay(row);existing.add(value);}day.setUTCDate(day.getUTCDate()+1);}message.textContent='Συμπληρώθηκαν οι νύχτες που έλειπαν. Ελέγξτε πόλη, τύπο και κόστος.';});
 
 const accommodation=JSON.parse(document.getElementById('accommodation-data').textContent);
 function updateStay(row){
  const kind=row.querySelector('[name$="-accommodation_type"]');
  const cost=row.querySelector('[name$="-estimated_cost"]');
  const selected=accommodation.types.find(t=>String(t.id)===kind.value);
- cost.disabled=!selected?.has_cost;
- cost.required=Boolean(selected?.has_cost && row.querySelector('input[data-greek-date]').value);
+ const excluded=row.querySelector('[name$="-is_excluded"]')?.checked;
+ cost.disabled=!selected?.has_cost||excluded;
+ cost.required=Boolean(!excluded && selected?.has_cost && row.querySelector('input[data-greek-date]').value);
  if(selected && !selected.has_cost)cost.value='';
  cost.placeholder=selected&&!selected.has_cost?'Χωρίς κόστος':'0,00';
 }
@@ -35,11 +35,38 @@ function initializeStay(row){
 }
 document.querySelectorAll('#stays-rows .stay-row').forEach(updateStay);
 document.getElementById('stays-rows').addEventListener('change',event=>{const row=event.target.closest('.stay-row');if(row)updateStay(row);});
-// Populate missing dates automatically once the route and travel interval are known.
-for(const id of ['id_departure_at','id_return_at','id_route'])document.getElementById(id).addEventListener('change',()=>document.getElementById('generate-nights').click());
-// Do not recreate intentionally excluded nights on edit or after validation errors.
-const hasExistingDates=Array.from(document.querySelectorAll('#stays-rows input[data-greek-date]')).some(i=>i.value);
-if(!hasExistingDates && !document.querySelector('.errorlist'))document.getElementById('generate-nights').click();
+// Reconcile the interval, retaining row identity and values for unchanged dates.
+function synchronizeNights(){
+ const start=parseGreekDate(document.getElementById('id_departure_at').value);
+ const end=parseGreekDate(document.getElementById('id_return_at').value);
+ const message=document.getElementById('night-message');
+ if(!start||!end||end<start||!routeSelect.value){message.textContent='Συμπληρώστε διαδρομή και έγκυρες ημερομηνίες ταξιδιού.';return;}
+ const count=(Date.parse(end)-Date.parse(start))/86400000;
+ if(count>366){message.textContent='Για διάστημα άνω των 366 ημερών χρειάζεται έλεγχος.';return;}
+ const wanted=[];
+ for(let day=new Date(start+'T00:00:00Z');day<new Date(end+'T00:00:00Z');day.setUTCDate(day.getUTCDate()+1))wanted.push(day.toISOString().slice(0,10));
+ const container=document.getElementById('stays-rows');
+ const rows=Array.from(container.querySelectorAll('.stay-row'));
+ const byDate=new Map();
+ for(const row of rows){
+  const value=parseGreekDate(row.querySelector('input[data-greek-date]').value);
+  if(value&&!byDate.has(value))byDate.set(value,row);
+  row.hidden=true;row.querySelector('[name$="-DELETE"]').checked=true;
+  row.querySelectorAll('input,select').forEach(control=>{if(control.type!=='hidden'&&!control.name.endsWith('-DELETE'))control.disabled=true;});
+ }
+ for(const value of wanted){
+  let row=byDate.get(value);
+  if(!row){row=addRow('stays');row.querySelector('input[data-greek-date]').value=formatGreekDate(value);}
+  row.hidden=false;row.querySelector('[name$="-DELETE"]').checked=false;
+  row.querySelectorAll('input,select').forEach(control=>control.disabled=false);
+  const stops=row.querySelector('select[name$="-stop"]');
+  fillStops(stops);if(!stops.value&&stops.options.length>1)stops.selectedIndex=1;
+  initializeStay(row);container.appendChild(row);
+ }
+ message.textContent=count?`${count} νύχτες από τις ημερομηνίες ταξιδιού. Ελέγξτε πόλη, τύπο και κόστος.`:'Δεν προκύπτει διανυκτέρευση.';
+}
+for(const id of ['id_departure_at','id_return_at','id_route'])document.getElementById(id).addEventListener('change',synchronizeNights);
+synchronizeNights();
 
 const modes=JSON.parse(document.getElementById('transport-data').textContent);
 function updateSingleTransport(){

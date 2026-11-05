@@ -41,7 +41,7 @@ def document_pdf(travel,kind,print_date):
         if not estimate or estimate.algorithm_version!='estimate-3' or estimate.inputs.get('signature')!=signature(input_state(travel)):raise ValidationError('Αποθηκεύστε τη μετακίνηση ώστε να υπάρχει ενημερωμένος υπολογισμός.')
         body=employee.gender.text3+' '+employee.display_name+' με ατομική μου ευθύνη, δηλώνω ότι από '+fmt(travel.departure_at)+' έως '+fmt(travel.return_at)+' μετακινήθηκα για εκτέλεση υπηρεσίας στην/στις τοποθεσία/ες '+travel.route.destination+'. Για την εν λόγω μετακίνηση χρησιμοποίησα το με αριθμό κυκλοφορίας '+employee.car_plate+' ΙΧ αυτοκίνητό μου, τύπου '+employee.car_brand+'. Αριθμός αδείας οδήγησης: '+employee.driving_license+'. Χιλιόμετρα: '+greek_number(travel.route.distance_km)+'. Κόστος χιλιομετρικής αποζημίωσης: '+greek_number(estimate.mileage)+' ευρώ.'+reference
     elif kind=='friends':
-        nights=list(travel.overnights.filter(accommodation_type__requires_declaration=True).order_by('date'))
+        nights=list(travel.overnights.filter(accommodation_type__requires_declaration=True,is_excluded=False).order_by('date'))
         if not nights:raise ValidationError('Δεν υπάρχουν διανυκτερεύσεις σε φιλικό σπίτι.')
         body='Με ατομική μου ευθύνη δηλώνω ότι κατά τη διάρκεια της επίσκεψής μου στην/στις τοποθεσία/ες '+travel.route.destination+' για υπηρεσιακούς λόγους, διανυκτέρευσα σε φιλικό σπίτι τις παρακάτω ημερομηνίες:\n'+'\n'.join(fmt(n.date)+' — '+n.city for n in nights)+reference
     else:

@@ -56,6 +56,7 @@ class Gender(ImportedModel):
 
 
 class Employee(ImportedModel):
+    opening_travel_days = models.PositiveIntegerField('Ημέρες εκτός έδρας πριν την εγκατάσταση', default=0, help_text='Αρχικό υπόλοιπο μόνο για το έτος έναρξης εφαρμογής. Μην συμπεριλαμβάνετε μετακινήσεις που έχουν ήδη καταχωριστεί στην εφαρμογή.')
     gender = models.ForeignKey(Gender, verbose_name="Φύλο / γραμματική προσφώνηση", on_delete=models.PROTECT, null=True, blank=True)
     # Authentication is independent of the employee register.
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
@@ -268,6 +269,7 @@ class AccommodationReceipt(models.Model):
 
 
 class OvernightStay(ImportedModel):
+    is_excluded = models.BooleanField('Εξαίρεση λόγω προσωπικής άδειας', default=False)
     travel = models.ForeignKey(Travel, on_delete=models.CASCADE, related_name="overnights")
     date = models.DateField()
     stop = models.ForeignKey(RouteStop, on_delete=models.PROTECT)
@@ -366,6 +368,7 @@ class UserAccess(models.Model):
 
 
 class ApplicationParameters(models.Model):
+    installation_year = models.PositiveIntegerField('Έτος έναρξης εφαρμογής', null=True, blank=True, validators=[MinValueValidator(1900)], help_text='Τα αρχικά υπόλοιπα εργαζομένων προσμετρώνται μόνο στις μετακινήσεις αυτού του έτους.')
     approval_service_genitive = models.CharField("Υπηρεσία στη φράση έγκρισης (γενική)", max_length=255, default='της Ε.Υ.Δ. Προγράμματος "Κρήτη"')
     document_header = models.TextField("Επικεφαλίδα εγγράφων", default='ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ\nΠΕΡΙΦΕΡΕΙΑ ΚΡΗΤΗΣ\nΕιδική Υπηρεσία Διαχείρισης\nΠρογράμματος "Κρήτη"\nΔουκός Μποφώρ 7\n71202 Ηράκλειο\nΤηλ.: 2813-404500')
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
@@ -417,6 +420,15 @@ class ReportText(ImportedModel):
 
 
 class Signatory(NamedReference):
+    is_head = models.BooleanField('Προϊστάμενος οργανισμού / προεπιλεγμένος υπογράφων', default=False)
+
+    def clean(self):
+        super().clean()
+        if self.is_head and not self.is_active:
+            raise ValidationError({'is_head':'Ο προεπιλεγμένος υπογράφων πρέπει να είναι ενεργός.'})
+        if self.is_head and type(self).objects.filter(is_head=True).exclude(pk=self.pk).exists():
+            raise ValidationError({'is_head':'Υπάρχει ήδη προεπιλεγμένος υπογράφων. Αφαιρέστε πρώτα την ένδειξη από την προηγούμενη εγγραφή.'})
+
     speciality = models.CharField("Ιδιότητα", max_length=255, blank=True)
 
 

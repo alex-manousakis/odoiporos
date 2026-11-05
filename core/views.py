@@ -52,6 +52,12 @@ def travel_editor(request,travel=None,read_only=False):
     form=TravelForm(post,instance=travel,user=request.user)
     parent_valid=form.is_valid() if post is not None else False
     parent=form.instance
+    if post is not None and post.get('automatic_nights')=='1' and parent_valid:
+        if (parent.return_at-parent.departure_at).days>366:
+            form.add_error(None,'Για διάστημα άνω των 366 ημερών χρειάζεται έλεγχος.')
+        else:
+            from .night_rows import synchronized_post
+            post=synchronized_post(post,parent)
     expenses=ExpenseFormSet(post,instance=parent,prefix='expenses') if post is not None and 'expenses-TOTAL_FORMS' in post and not parent.transport_configured else ExpenseFormSet(instance=parent,prefix='expenses')
     stays=StayFormSet(post,instance=parent,prefix='stays',form_kwargs={'travel':parent}) if post is None or 'stays-TOTAL_FORMS' in post else StayFormSet(instance=parent,prefix='stays',form_kwargs={'travel':parent})
     if read_only:

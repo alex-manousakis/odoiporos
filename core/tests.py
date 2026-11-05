@@ -149,7 +149,7 @@ class TravelCostEntryTests(TravelEntryTests):
 class UnifiedTravelTests(TravelCostEntryTests):
     def test_unified_create_with_children(self):
         response=self.client.get('/travels/new/')
-        self.assertContains(response,'generate-nights')
+        self.assertContains(response,'name="automatic_nights"')
         response=self.client.post('/travels/new/',{**self.data,'return_at':'2026-11-05',**self.payload,'protocol_number':'123'})
         self.assertEqual(response.status_code,302)
         created=Travel.objects.exclude(pk=self.travel.pk).get()
@@ -690,7 +690,7 @@ class ApprovalPDFTests(TestCase):
         from .models import ApplicationParameters,ReportDefinition,ReportText,Signatory
         from .calculation import calculate_estimate
         from django.contrib.auth.models import Permission
-        ApplicationParameters.objects.filter(pk=1).update(allowedtravelsperyear=200)
+        ApplicationParameters.objects.filter(pk=1).update(allowedtravelsperyear=200,installation_year=2026,prosfonisiproistamenou='Head of service')
         from .models import Gender
         self.employee.gender=Gender.objects.create(name='Male',text1='\u03c4\u03bf\u03c5')
         self.employee.name_genitive='Test genitive';self.employee.save()
@@ -699,7 +699,7 @@ class ApprovalPDFTests(TestCase):
         self.script=ReportText.objects.create(report=report,sort_order=1,text='First legal paragraph & plain text')
         report=ReportDefinition.objects.create(legacy_id=12,name='Budget')
         ReportText.objects.create(report=report,sort_order=1,text='Funding paragraph')
-        self.signer=Signatory.objects.create(name='Test signer',speciality='Head')
+        self.signer=Signatory.objects.create(name='Test signer',speciality='Head',is_head=True)
         self.user.user_permissions.add(Permission.objects.get(content_type__app_label='core',codename='print_travel'))
         calculate_estimate(self.travel.pk,self.user)
 
@@ -707,7 +707,8 @@ class ApprovalPDFTests(TestCase):
         from .approval_pdf import generate_approval
         from pypdf import PdfReader
         from io import BytesIO
-        document=generate_approval(self.travel.pk,self.user,self.signer,'Head of service',10)
+        self.employee.opening_travel_days=10;self.employee.save(update_fields=['opening_travel_days'])
+        document=generate_approval(self.travel.pk,self.user,self.signer)
         data=bytes(document.content)
         self.assertTrue(data.startswith(b'%PDF-'))
         reader=PdfReader(BytesIO(data))
@@ -729,12 +730,12 @@ class ApprovalPDFTests(TestCase):
         from .approval_pdf import generate_approval
         from django.core.exceptions import ValidationError
         self.travel.expenses.filter(kind='ticket').update(estimated_amount=999)
-        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer)
         self.assertFalse(self.travel.approval_documents.exists())
 
     def test_download_scope_and_print_permission(self):
         from .approval_pdf import generate_approval
-        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        document=generate_approval(self.travel.pk,self.user,self.signer)
         self.client.force_login(self.user)
         response=self.client.get(f'/approvals/{document.pk}/download/')
         self.assertEqual(response.status_code,200)
@@ -756,14 +757,14 @@ class OptionalApprovalProtocolTests(ApprovalPDFTests):
     def test_print_without_protocol(self):
         from .approval_pdf import generate_approval
         self.travel.protocol_number='';self.travel.protocol_date=None;self.travel.save()
-        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        document=generate_approval(self.travel.pk,self.user,self.signer)
         self.assertTrue(bytes(document.content).startswith(b'%PDF-'))
         self.assertEqual(document.source['protocol_date'],'')
 
     def test_print_with_only_protocol_number(self):
         from .approval_pdf import generate_approval
         self.travel.protocol_date=None;self.travel.save()
-        document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        document=generate_approval(self.travel.pk,self.user,self.signer)
         self.assertEqual(document.source['protocol_number'],'123')
 
 
@@ -775,7 +776,7 @@ class ApprovalGenderTests(ApprovalPDFTests):
             with self.subTest(article=article):
                 self.employee.gender=Gender.objects.create(name=article,text1=article)
                 self.employee.save()
-                document=generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+                document=generate_approval(self.travel.pk,self.user,self.signer)
                 self.assertEqual(document.source['employee']['approval_subject'],article+' Test genitive')
                 self.assertIn(article+' Test genitive',document.source['decision_text'])
 
@@ -783,7 +784,7 @@ class ApprovalGenderTests(ApprovalPDFTests):
         from .approval_pdf import generate_approval
         from django.core.exceptions import ValidationError
         self.employee.gender=None;self.employee.save()
-        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer,'Head',0)
+        with self.assertRaises(ValidationError):generate_approval(self.travel.pk,self.user,self.signer)
 
 
 class TripTabbedWorkflowTests(TravelCostEntryTests):

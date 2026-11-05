@@ -117,7 +117,7 @@ class ExpenseForm(GreekNumberFormMixin, forms.ModelForm):
 class OvernightForm(GreekNumberFormMixin, forms.ModelForm):
     class Meta:
         model=m.OvernightStay
-        fields=['date','stop','accommodation_type','estimated_cost']
+        fields=['date','stop','accommodation_type','estimated_cost','is_excluded']
         labels={'date':'Νύχτα διαμονής','stop':'Τόπος διαμονής','accommodation_type':'Τύπος διαμονής','estimated_cost':'Εκτιμώμενο κόστος (€)'}
         widgets={'date':GreekDateInput()}
 
@@ -125,6 +125,7 @@ class OvernightForm(GreekNumberFormMixin, forms.ModelForm):
         self.travel=travel
         super().__init__(*args,**kwargs)
         self.fields['date'].input_formats=['%d/%m/%Y','%Y-%m-%d']
+        self.fields['date'].widget.attrs['readonly']=True
         self.fields['stop'].queryset=travel.route.stops.all() if travel.route_id else m.RouteStop.objects.none()
         self.fields['stop'].label_from_instance=lambda stop:stop.city
         self.fields['accommodation_type'].queryset=m.AccommodationType.objects.filter(is_active=True).order_by('name')
@@ -137,7 +138,7 @@ class OvernightForm(GreekNumberFormMixin, forms.ModelForm):
         if kind and not kind.has_cost:
             data['estimated_cost']=None
             self.instance.estimated_cost=None
-        if kind and kind.has_cost and cost is None:
+        if kind and kind.has_cost and cost is None and not data.get('is_excluded'):
             self.add_error('estimated_cost','Συμπληρώστε εκτιμώμενο κόστος.')
         if stop:
             for name in ['city','is_abroad','is_expensive','is_island','compensation_band']:
@@ -174,4 +175,4 @@ class ExpenseInlineFormSet(forms.BaseInlineFormSet):
 
 
 ExpenseFormSet=forms.inlineformset_factory(m.Travel,m.TravelExpense,form=ExpenseForm,formset=ExpenseInlineFormSet,extra=2,can_delete=True)
-StayFormSet=forms.inlineformset_factory(m.Travel,m.OvernightStay,form=OvernightForm,formset=OvernightFormSet,extra=2,can_delete=True)
+StayFormSet=forms.inlineformset_factory(m.Travel,m.OvernightStay,form=OvernightForm,formset=OvernightFormSet,extra=0,can_delete=True)
