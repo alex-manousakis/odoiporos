@@ -30,7 +30,8 @@ class AccountingTests(TestCase):
         self.assertNotContains(self.client.get('/'),'Μετακινήσεις (Λογιστήριο)')
         self.user=self.grant();self.client.force_login(self.user)
         self.assertEqual(self.client.get('/accounting/travels/').status_code,200)
-        self.assertContains(self.client.get('/'),'Μετακινήσεις (Λογιστήριο)')
+        self.assertNotContains(self.client.get('/'),'Μετακινήσεις (Λογιστήριο)')
+        self.assertContains(self.client.get(f'/travels/{self.travel.pk}/'),f'/accounting/travels/{self.travel.pk}/adjustment/')
 
     def test_other_organization_costs_override_and_recalculate_totals(self):
         self.user=self.grant();self.client.force_login(self.user)

@@ -111,10 +111,8 @@ def travel_editor(request,travel=None,read_only=False,accounting=False):
     from django.conf import settings
     parameters=ApplicationParameters.objects.filter(pk=1).first()
     default_stay=parameters.default_accommodation if parameters else AccommodationType.objects.filter(legacy_id=getattr(settings,"DEFAULT_ACCOMMODATION_LEGACY_ID",None),is_active=True).first()
-    from .models import AccountingAdjustment
-    adjustment_exists=parent.pk and AccountingAdjustment.objects.filter(travel=parent).exists()
-    adjustment_permission='core.change_accountingadjustment' if adjustment_exists else 'core.add_accountingadjustment'
-    return render(request,'core/travel_form.html',{'accounting_mode':accounting,'can_adjust':accounting and not read_only and request.user.has_perm(adjustment_permission),'read_only':read_only,'calculation':calculation,'calculation_stale':calculation_stale,'form':form,'travel':parent,'expenses':expenses,'stays':stays,'accommodation_options':{'types':list(AccommodationType.objects.filter(is_active=True).values('id','has_cost')),'default':default_stay.pk if default_stay else None},'routes':routes,'transport_modes':list(TransportMode.objects.all().values('id','has_mileage_cost','has_ticket_cost'))})
+    from .accounting import can_adjust_calculations
+    return render(request,'core/travel_form.html',{'accounting_mode':accounting,'can_adjust':not read_only and can_adjust_calculations(request.user),'read_only':read_only,'calculation':calculation,'calculation_stale':calculation_stale,'form':form,'travel':parent,'expenses':expenses,'stays':stays,'accommodation_options':{'types':list(AccommodationType.objects.filter(is_active=True).values('id','has_cost')),'default':default_stay.pk if default_stay else None},'routes':routes,'transport_modes':list(TransportMode.objects.all().values('id','has_mileage_cost','has_ticket_cost'))})
 
 
 @login_required
@@ -141,7 +139,8 @@ def can_edit_costs(user,travel):
     from .access import can_action, employee_scope
     allowed=can_action(user,'change') and employee_scope(user).filter(pk=travel.employee_id).exists()
     from .models import AccountingAdjustment
-    if AccountingAdjustment.objects.filter(travel=travel,is_active=True).exists() and not (user.has_perm('core.view_accountingadjustment') and (user.has_perm('core.change_accountingadjustment') or user.has_perm('core.add_accountingadjustment'))):
+    from .accounting import can_adjust_calculations
+    if AccountingAdjustment.objects.filter(travel=travel,is_active=True).exists() and not can_adjust_calculations(user):
         return False
     return allowed and travel.status.legacy_id==1 and travel.approved_at is None and not travel.calculations.filter(frozen_at__isnull=False).exists()
 

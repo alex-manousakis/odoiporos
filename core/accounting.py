@@ -13,8 +13,13 @@ AMOUNTS={'daily_domestic':'Ημερήσια αποζημίωση Ελλάδας 
     'total':'Συνολικό κόστος (€)','document_budget':'Προϋπολογισμός απόφασης (€)'}
 NUMBERS={'days':'Ημέρες υπολογισμού','distance_km':'Απόσταση υπολογισμού (χλμ.)','overnights':'Διανυκτερεύσεις υπολογισμού'}
 
+ADJUSTMENT_PERMISSIONS=tuple('core.'+action+'_accountingadjustment' for action in ('view','add','change'))
+
+def can_adjust_calculations(user):
+    return user.is_authenticated and user.is_active and user.has_perms(ADJUSTMENT_PERMISSIONS)
+
 def require_access(user):
-    if not user.has_perm('core.view_accountingadjustment'): raise PermissionDenied
+    if not can_adjust_calculations(user): raise PermissionDenied
 
 class AdjustmentForm(GreekNumberFormMixin,forms.Form):
     is_active=forms.BooleanField(label='Εφαρμογή χειροκίνητων προσαρμογών',required=False,initial=True)
@@ -54,7 +59,7 @@ def apply_adjustment(travel,actor,details,amounts,parameters):
 def accounting_home(request):
     require_access(request.user)
     from .views import home
-    return home(request,accounting=True)
+    return home(request)
 
 @login_required
 def accounting_create(request):
@@ -62,7 +67,7 @@ def accounting_create(request):
     from .access import can_action
     from .views import travel_editor
     if not can_action(request.user,'add'):raise PermissionDenied
-    return travel_editor(request,accounting=True)
+    return travel_editor(request)
 
 @login_required
 def accounting_edit(request,pk):
@@ -72,7 +77,7 @@ def accounting_edit(request,pk):
         travel=get_object_or_404(visible_travels(request.user).select_for_update(),pk=pk)
         editable=can_edit_costs(request.user,travel)
         if request.method=='POST' and not editable:raise PermissionDenied
-        return travel_editor(request,travel,read_only=not editable,accounting=True)
+        return travel_editor(request,travel,read_only=not editable)
 
 @login_required
 def accounting_adjustment(request,pk):
@@ -98,7 +103,7 @@ def accounting_adjustment(request,pk):
                         row.full_clean();row.save()
                         calculate_estimate(travel.pk,request.user)
                 except ValidationError as error:form.add_error(None,error.messages)
-                else:return redirect('core:accounting_edit',pk=pk)
+                else:return redirect('core:travel_detail',pk=pk)
         baseline=snapshot.inputs.get('accounting',{}).get('automatic',{}) if snapshot else {}
         rows=[]
         for name,label in {**AMOUNTS,**NUMBERS}.items():

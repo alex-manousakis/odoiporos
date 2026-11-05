@@ -13,10 +13,15 @@ MODULE_LABELS = {'accountingadjustment':'Μετακινήσεις (Λογιστ�
 
 def editable_permissions():
     # Authentication and security administration remain superuser-only.
-    return Permission.objects.filter(content_type__app_label='core').exclude(content_type__model__in=['useraccess','auditevent']).select_related('content_type').order_by('content_type__model','codename')
+    return Permission.objects.filter(content_type__app_label='core').exclude(content_type__model__in=['useraccess','auditevent','accountingadjustment']).select_related('content_type').order_by('content_type__model','codename')
+
+
+def adjustment_permissions():
+    return Permission.objects.filter(content_type__app_label='core',content_type__model='accountingadjustment',codename__in=['view_accountingadjustment','add_accountingadjustment','change_accountingadjustment'])
 
 
 class UserForm(forms.ModelForm):
+    allow_calculation_adjustments=forms.BooleanField(label='Επιτρέπονται χειροκίνητες προσαρμογές υπολογισμών',required=False)
     password=forms.CharField(label='Νέος κωδικός πρόσβασης',required=False,widget=forms.PasswordInput)
     employee=forms.ModelChoiceField(label='Σύνδεση με εργαζόμενο',queryset=Employee.objects.none(),required=False)
     scope=forms.ChoiceField(label='Πρόσβαση στις μετακινήσεις',choices=UserAccess.Scope.choices)
@@ -33,6 +38,9 @@ class UserForm(forms.ModelForm):
         from django.db.models import Q
         self.fields['employee'].queryset=Employee.objects.filter(Q(user__isnull=True)|Q(user_id=self.instance.pk)).order_by('display_name')
         if self.instance.pk:
+            from django.db.models import Q
+            granted=set(adjustment_permissions().filter(Q(user=self.instance)|Q(group__user=self.instance)).values_list('codename',flat=True))
+            self.initial['allow_calculation_adjustments']=self.instance.is_superuser or granted=={'view_accountingadjustment','add_accountingadjustment','change_accountingadjustment'}
             access=UserAccess.objects.filter(user=self.instance).first()
             self.initial.update(employee=Employee.objects.filter(user=self.instance).first(),scope=access.scope if access else 'own',departments=access.departments.all() if access else [],permissions=self.instance.user_permissions.all())
 
@@ -70,7 +78,10 @@ def user_edit(request,pk=None):
                 user.save()
                 # The matrix is authoritative: remove inherited grants that would override it.
                 user.groups.clear()
-                user.user_permissions.set(form.cleaned_data['permissions'])
+                selected_permissions=list(form.cleaned_data['permissions'])
+                if form.cleaned_data['allow_calculation_adjustments']:
+                    selected_permissions+=list(adjustment_permissions())
+                user.user_permissions.set(selected_permissions)
                 for linked in Employee.objects.select_for_update().filter(user=user):
                     linked.user=None
                     linked.save(update_fields=['user'])

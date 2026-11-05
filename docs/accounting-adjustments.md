@@ -5,13 +5,19 @@ Accounts without an Employee link choose a scoped employee explicitly.
 
 ## Access configuration
 
-In Users and permissions, grant the new “Μετακινήσεις (Λογιστήριο) — χειροκίνητες
-προσαρμογές” module View to expose the accounting menu. Add permits the first manual
-adjustment; Change permits later changes/restoration. These permissions do not grant
-unrestricted employee access. Also grant the usual trip View/Add/Change permissions
-and configure the account's employee scope (selected departments or all departments).
-Print permission is still required for PDFs. No ordinary user has been automatically
-assigned accounting rights. Superusers already have access.
+In Users and permissions, use the single checkbox “Επιτρέπονται χειροκίνητες
+προσαρμογές υπολογισμών”. It grants/revokes the existing Django View/Add/Change
+permissions for AccountingAdjustment as one capability. These permissions are no
+longer duplicated in the module matrix. Existing complete direct/group grants remain
+recognized; inactive users cannot adjust. Partial legacy grants do not confer the
+full capability and should be reviewed by an administrator.
+
+There is one “Μετακινήσεις” menu. Authorized users see the adjustment button inside
+the ordinary trip editor after its first save. Legacy accounting URLs remain protected
+and render the shared screens, for existing bookmarks. No extra database boolean or
+schema migration is needed. The checkbox does not expand employee access: usual trip
+View/Add/Change rights and the existing scope (own, selected departments or all) still
+apply. Print permission remains separate. Superusers have the capability automatically.
 
 Accounting uses the same filtered list, trip editor and automatic calculation engine.
 It can create a trip for any employee within the configured scope. Closed, approved
