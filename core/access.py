@@ -51,6 +51,7 @@ def navigation(request):
 
     if user.is_authenticated:
         group('travel','Μετακινήσεις',[
+            (can_action(user,'view'),'Πίνακας ελέγχου','dashboard',('dashboard',)),
             (can_action(user,'view'),'Μετακινήσεις','home',('home','travel_create','travel_detail','travel_edit','travel_costs','approval_create','approval_download','accounting_home','accounting_create','accounting_edit','accounting_adjustment')),
         ])
         group('routes','Διαδρομές',[
