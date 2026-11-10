@@ -368,6 +368,9 @@ class UserAccess(models.Model):
 
 
 class ApplicationParameters(models.Model):
+    report_recipient = models.CharField('Αποδέκτης λοιπών εγγράφων', max_length=255, default='Ειδική Υπηρεσία Διαχείρισης Προγράμματος "Κρήτη"')
+    report_place = models.CharField('Τόπος υπογραφής λοιπών εγγράφων', max_length=100, default='Ηράκλειο')
+    report_address = models.CharField('Διεύθυνση στο υποσέλιδο λοιπών εγγράφων', max_length=255, default='Δουκός Μποφώρ 7 – 71202 Ηράκλειο')
     installation_year = models.PositiveIntegerField('Έτος έναρξης εφαρμογής', null=True, blank=True, validators=[MinValueValidator(1900)], help_text='Τα αρχικά υπόλοιπα εργαζομένων προσμετρώνται μόνο στις μετακινήσεις αυτού του έτους.')
     approval_service_genitive = models.CharField("Υπηρεσία στη φράση έγκρισης (γενική)", max_length=255, default='της Ε.Υ.Δ. Προγράμματος "Κρήτη"')
     document_header = models.TextField("Επικεφαλίδα εγγράφων", default='ΕΛΛΗΝΙΚΗ ΔΗΜΟΚΡΑΤΙΑ\nΠΕΡΙΦΕΡΕΙΑ ΚΡΗΤΗΣ\nΕιδική Υπηρεσία Διαχείρισης\nΠρογράμματος "Κρήτη"\nΔουκός Μποφώρ 7\n71202 Ηράκλειο\nΤηλ.: 2813-404500')

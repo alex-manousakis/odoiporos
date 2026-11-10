@@ -370,7 +370,7 @@ class ApplicationParametersTests(TestCase):
         user=get_user_model().objects.create_superuser(username='params-admin',password='Test-Password-123')
         self.client.force_login(user)
         self.assertEqual(self.client.get('/parameters/').status_code,200)
-        response=self.client.post('/parameters/',{'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5','document_header':'Organization header','approval_service_genitive':'of the service'})
+        response=self.client.post('/parameters/',{**{name:ApplicationParameters._meta.get_field(name).get_default() for name in ['report_recipient','report_place','report_address']},'countriescomp2':'Group two','countriescomp3':'Group three','travelnumdigits':'5','document_header':'Organization header','approval_service_genitive':'of the service'})
         self.assertEqual(response.status_code,302)
         self.assertEqual(ApplicationParameters.objects.get(pk=1).countriescomp2,'Group two')
 
