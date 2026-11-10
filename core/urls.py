@@ -24,3 +24,6 @@ urlpatterns += [path('accounting/travels/',accounting.accounting_home,name='acco
 
 from .dashboard import dashboard
 urlpatterns += [path('dashboard/',dashboard,name='dashboard')]
+
+from . import detailed_statement
+urlpatterns += [path('reports/detailed-statement/',detailed_statement.statement_form,name='detailed_statement'),path('reports/detailed-statement/<int:pk>/pdf/',detailed_statement.statement_download,name='detailed_statement_download')]

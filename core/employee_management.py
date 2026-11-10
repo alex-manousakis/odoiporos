@@ -22,7 +22,7 @@ class EmployeeForm(forms.ModelForm):
 
     class Meta:
         model=Employee
-        fields=['code','first_name','last_name','display_name','name_genitive','gender','department','speciality','position','id_number','tax_number','father_name','mother_name','birth_place','birth_date','phone','city','address','address_number','postal_code','fax','email','driving_license','car_brand','iban','car_plate','opening_travel_days','is_active','user']
+        fields=['code','first_name','last_name','display_name','name_genitive','gender','department','speciality','position','id_number','tax_number','father_name','mother_name','birth_place','birth_date','phone','city','address','address_number','postal_code','fax','email','driving_license','car_brand','iban','car_plate','opening_travel_days','has_mtpy','has_geotee','is_active','user']
         widgets={'birth_date':GreekDateInput()}
         labels={'code':'Κωδικός','first_name':'Όνομα','last_name':'Επώνυμο','display_name':'Ονοματεπώνυμο','name_genitive':'Ονοματεπώνυμο σε γενική','department':'Μονάδα','speciality':'Ειδικότητα','position':'Θέση','email':'Email','iban':'IBAN','car_plate':'Αριθμός κυκλοφορίας ΙΧ','is_active':'Ενεργός','user':'Λογαριασμός χρήστη'}
 

@@ -56,6 +56,8 @@ class Gender(ImportedModel):
 
 
 class Employee(ImportedModel):
+    has_mtpy = models.BooleanField('Υπαγωγή σε κράτηση ΜΤΠΥ', null=True, blank=True, default=None)
+    has_geotee = models.BooleanField('Υπαγωγή σε κράτηση ΓΕΩΤΕΕ', null=True, blank=True, default=None)
     opening_travel_days = models.PositiveIntegerField('Ημέρες εκτός έδρας πριν την εγκατάσταση', default=0, help_text='Αρχικό υπόλοιπο μόνο για το έτος έναρξης εφαρμογής. Μην συμπεριλαμβάνετε μετακινήσεις που έχουν ήδη καταχωριστεί στην εφαρμογή.')
     gender = models.ForeignKey(Gender, verbose_name="Φύλο / γραμματική προσφώνηση", on_delete=models.PROTECT, null=True, blank=True)
     # Authentication is independent of the employee register.
@@ -499,3 +501,19 @@ class AccountingAdjustment(models.Model):
         default_permissions = ('view','add','change')
         verbose_name = 'Μετακινήσεις (Λογιστήριο)'
         verbose_name_plural = 'Μετακινήσεις (Λογιστήριο)'
+
+
+class DetailedStatement(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT)
+    period = models.ForeignKey(SettlementPeriod, on_delete=models.PROTECT)
+    signatory = models.ForeignKey(Signatory, on_delete=models.PROTECT)
+    print_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    content = models.BinaryField()
+    source = models.JSONField()
+    sha256 = models.CharField(max_length=64)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ['-created_at','-pk']

@@ -64,6 +64,7 @@ def navigation(request):
         group('travel','Μετακινήσεις',[
             (can_action(user,'view'),'Πίνακας ελέγχου','dashboard',('dashboard',)),
             (can_action(user,'view'),'Μετακινήσεις','home',('home','travel_create','travel_detail','travel_edit','travel_costs','approval_create','approval_download','accounting_home','accounting_create','accounting_edit','accounting_adjustment')),
+            (can_action(user,'view') and user.has_perm('core.print_travel'),'Εκτ. Αναλυτικής Κατάστασης','detailed_statement',('detailed_statement','detailed_statement_download')),
         ])
         group('routes','Διαδρομές',[
             (user.has_perm('core.view_route'),'Διαχείριση διαδρομών','routes',('routes','route_create','route_edit')),
