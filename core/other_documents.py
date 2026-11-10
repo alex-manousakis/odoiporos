@@ -17,21 +17,42 @@ def friends_nights(travel):
 def uses_car(travel):
     return bool(travel.transport_id and travel.transport.has_mileage_cost) if travel.transport_configured else travel.expenses.filter(kind='mileage',is_cancelled=False).exists()
 
+def available_documents(travel):
+    return [(key,label) for key,label in DOCUMENT_TYPES if (key!='friends' or friends_nights(travel).exists()) and (key!='car' or uses_car(travel))]
+
+def combined_document_pdf(travel,print_date):
+    from io import BytesIO
+    from pypdf import PdfReader,PdfWriter
+    parts=[]
+    for kind,label in available_documents(travel):
+        try:content=document_pdf(travel,kind,print_date)
+        except ValidationError as error:raise ValidationError(label+': '+' '.join(error.messages))
+        parts.append((label,PdfReader(BytesIO(content))))
+    with PdfWriter() as writer:
+        for label,reader in parts:writer.append(reader,outline_item=label)
+        writer.add_metadata({'/Title':'Λοιπά έγγραφα μετακίνησης','/Author':travel.employee.display_name})
+        output=BytesIO();writer.write(output)
+        return output.getvalue()
+
+
 class DocumentForm(forms.Form):
     kind=forms.ChoiceField(label='Έγγραφο',choices=DOCUMENT_TYPES)
     print_date=forms.DateField(label='Ημερομηνία εγγράφου',widget=GreekDateInput(),input_formats=['%d/%m/%Y','%Y-%m-%d'])
 
     def __init__(self,*args,travel,**kwargs):
         super().__init__(*args,**kwargs)
-        self.fields['kind'].choices=[(key,label) for key,label in DOCUMENT_TYPES if (key!='friends' or friends_nights(travel).exists()) and (key!='car' or uses_car(travel))]
+        self.fields['kind'].choices=[('all','Όλα τα διαθέσιμα έγγραφα (ένα PDF)')]+available_documents(travel)
+        self.initial.setdefault('kind','all')
 
 def document_pdf(travel,kind,print_date):
+    if kind=='all':return combined_document_pdf(travel,print_date)
     if kind not in dict(DOCUMENT_TYPES):raise ValidationError('Μη έγκυρο είδος εγγράφου.')
     employee=travel.employee
     params=ApplicationParameters.objects.filter(pk=1).first()
     if not params:raise ValidationError('Λείπουν οι παράμετροι εφαρμογής.')
     fmt=lambda day:day.strftime('%d/%m/%Y') if day else ''
-    protocol=' / '.join(x for x in [travel.protocol_number,fmt(travel.protocol_date)] if x)
+    protocol_date=travel.protocol_date.strftime('%d.%m.%Y') if kind=='car' and travel.protocol_date else fmt(travel.protocol_date)
+    protocol=('/' if kind=='car' else ' / ').join(x for x in [travel.protocol_number,protocol_date] if x)
     data={'kind':kind,'employee':employee,'recipient':params.report_recipient,'place':params.report_place,'address':params.report_address,
         'print_date':fmt(print_date),'birth_date':fmt(employee.birth_date),'protocol':protocol,'destination':travel.route.destination,
         'departure':fmt(travel.departure_at),'return':fmt(travel.return_at),'purpose':travel.purpose,'actions':travel.actions_description,
