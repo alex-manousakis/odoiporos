@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from .models import Signatory, ApplicationParameters, ApprovalDocument
 from .views import visible_travels
+from .report_branding import default_report_signatory
 
 
 class ApprovalForm(forms.Form):
@@ -17,14 +18,14 @@ def approval_create(request,pk):
     if not request.user.has_perm('core.print_travel'):raise PermissionDenied
     travel=get_object_or_404(visible_travels(request.user),pk=pk)
     params=ApplicationParameters.objects.filter(pk=1).first()
-    heads=list(Signatory.objects.filter(is_head=True,is_active=True)[:2])
-    form=ApprovalForm(request.POST if request.method=='POST' else None,initial={'signatory':heads[0].pk if len(heads)==1 else None})
+    head=default_report_signatory()
+    form=ApprovalForm(request.POST if request.method=='POST' else None,initial={'signatory':head.pk if head else None})
     from .annual_days import annual_balance
     balance=None
     configuration_errors=[]
     try: balance=annual_balance(travel,params)
     except ValidationError as error: configuration_errors.extend(error.messages)
-    if len(heads)!=1: configuration_errors.append('Ορίστε έναν ενεργό προεπιλεγμένο υπογράφοντα στις Υπογραφές.')
+    if not head: configuration_errors.append('Ορίστε ενεργό προϊστάμενο οργανισμού στις Παραμέτρους εφαρμογής / Υπογραφές.')
     if request.method=='POST' and form.is_valid() and not configuration_errors:
         from .approval_pdf import generate_approval
         try:

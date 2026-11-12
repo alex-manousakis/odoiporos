@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from .models import Employee,Department,SettlementPeriod,Signatory,ApplicationParameters,DetailedStatement,SettlementItem
 from .access import employee_scope,can_action
+from .report_branding import default_report_signatory
 from .date_widgets import GreekDateInput
 from .views import visible_travels
 from .calculation import input_state,signature
@@ -72,15 +73,15 @@ def report_row(travel,snapshot):
     return row
 
 @transaction.atomic
-def generate_statement(user,employee,period,signatory,print_date):
+def build_statement_source(user,employee,period,signatory,print_date,require_payment_details=True):
     require_statement_access(user)
-    employee=get_object_or_404(employee_scope(user).select_for_update().select_related('department','speciality','position'),pk=employee.pk)
     period=SettlementPeriod.objects.select_for_update().get(pk=period.pk)
     signatory=Signatory.objects.select_for_update().get(pk=signatory.pk)
+    employee=get_object_or_404(employee_scope(user).select_for_update().select_related('department','speciality','position'),pk=employee.pk)
     params=ApplicationParameters.objects.filter(pk=1).first()
     if not params:raise ValidationError('Λείπουν οι παράμετροι εφαρμογής.')
     if not signatory.is_active:raise ValidationError('Επιλέξτε ενεργό υπογράφοντα.')
-    if not employee.tax_number or not employee.iban:raise ValidationError('Συμπληρώστε ΑΦΜ και IBAN στον εργαζόμενο πριν από την εκτύπωση.')
+    if require_payment_details and (not employee.tax_number or not employee.iban):raise ValidationError('Συμπληρώστε ΑΦΜ και IBAN στον εργαζόμενο πριν από την εκτύπωση.')
     trips=list(visible_travels(user).filter(employee=employee,departure_at__gte=period.starts_on,departure_at__lte=period.ends_on).select_for_update().prefetch_related('expenses__transport','calculations').order_by('departure_at','pk'))
     if not trips:raise ValidationError('Δεν υπάρχουν μετακινήσεις του εργαζομένου με αναχώρηση μέσα στην περίοδο.')
     rows=[]
@@ -119,6 +120,11 @@ def generate_statement(user,employee,period,signatory,print_date):
         'print_date':print_date.strftime('%d/%m/%Y'),'rows':rows,'totals':totals,'daily':daily,'expenses':expenses,'adjustment':adjustment,'deductions':deductions,'taxes':taxes,'net':net,
         'provisional':any(row['stage']=='estimate' for row in rows),'selection_rule':'departure_within_period_inclusive','algorithm':'detailed-statement-1'}
     source=json.loads(json.dumps(source,default=str))
+    return source
+
+@transaction.atomic
+def generate_statement(user,employee,period,signatory,print_date):
+    source=build_statement_source(user,employee,period,signatory,print_date)
     content=render_statement(source)
     return DetailedStatement.objects.create(employee=employee,period=period,signatory=signatory,print_date=print_date,created_by=user,content=content,source=source,sha256=hashlib.sha256(content).hexdigest())
 
@@ -128,7 +134,7 @@ def statement_form(request):
     data=request.POST if request.method=='POST' else request.GET
     own=employee_scope(request.user).filter(user=request.user).first()
     period=SettlementPeriod.objects.filter(is_active=True,starts_on__lte=timezone.localdate()).order_by('-starts_on','-pk').first()
-    head=Signatory.objects.filter(is_head=True,is_active=True).first()
+    head=default_report_signatory()
     initial={'employee':own.pk if own else None,'period':period.pk if period else None,'signatory':head.pk if head else None,'print_date':timezone.localdate()}
     if request.method=='GET':
         for key in initial:

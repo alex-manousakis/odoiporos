@@ -370,6 +370,7 @@ class UserAccess(models.Model):
 
 
 class ApplicationParameters(models.Model):
+    organization_head = models.ForeignKey('Signatory', verbose_name='Προϊστάμενος οργανισμού / προεπιλεγμένη υπογραφή αναφορών', on_delete=models.PROTECT, null=True, blank=True, related_name='+', limit_choices_to={'is_active':True}, help_text='Κοινή προεπιλογή για απόφαση έγκρισης, αναλυτική και συνοπτική κατάσταση. Μπορεί να επιλεγεί αναπληρωτής κατά την εκτύπωση.')
     report_recipient = models.CharField('Αποδέκτης λοιπών εγγράφων', max_length=255, default='Ειδική Υπηρεσία Διαχείρισης Προγράμματος "Κρήτη"')
     report_place = models.CharField('Τόπος υπογραφής λοιπών εγγράφων', max_length=100, default='Ηράκλειο')
     report_address = models.CharField('Διεύθυνση στο υποσέλιδο λοιπών εγγράφων', max_length=255, default='Δουκός Μποφώρ 7 – 71202 Ηράκλειο')
@@ -384,7 +385,7 @@ class ApplicationParameters(models.Model):
     ekkatharistis = models.CharField('Ονοματεπώνυμο εκκαθαριστή', max_length=255, blank=True)
     perifereiarxis = models.CharField('Περιφερειάρχης', max_length=255, blank=True)
     prosfonisiypografis = models.CharField('Προσφώνηση υπογραφής', max_length=255, blank=True)
-    prosfonisiproistamenou = models.CharField('Προσφώνηση προϊσταμένου', max_length=255, blank=True)
+    prosfonisiproistamenou = models.CharField('Προσφώνηση υπογραφής προϊσταμένου (κοινή στις αναφορές)', max_length=255, blank=True)
     usernameproistamenou = models.CharField('Όνομα χρήστη προϊσταμένου (παλιό σύστημα)', max_length=255, blank=True)
     username_anapl_proistamenou = models.CharField('Όνομα χρήστη αναπληρωτή (παλιό σύστημα)', max_length=255, blank=True)
     attachmentsfolder = models.CharField('Παλιός κατάλογος συνημμένων (πληροφοριακό)', max_length=255, blank=True)
@@ -516,4 +517,20 @@ class DetailedStatement(models.Model):
 
     class Meta:
         default_permissions = ()
+        ordering = ['-created_at','-pk']
+
+
+class SummaryStatement(models.Model):
+    period = models.ForeignKey(SettlementPeriod, on_delete=models.PROTECT)
+    signatory = models.ForeignKey(Signatory, on_delete=models.PROTECT)
+    print_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    content = models.BinaryField()
+    source = models.JSONField()
+    sha256 = models.CharField(max_length=64)
+
+    class Meta:
+        default_permissions = ()
+        permissions = [('view_summarystatement', 'Can view summary statement'), ('print_summarystatement', 'Can print summary statement')]
         ordering = ['-created_at','-pk']

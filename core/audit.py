@@ -13,7 +13,7 @@ from django.dispatch import receiver
 from django.utils.cache import patch_cache_control
 
 current = ContextVar('audit_request', default=None)
-SENSITIVE = {'core.detailedstatement', 'core.accountingadjustment', 'auth.user', 'auth.group', 'core.employee', 'core.employeecategoryhistory',
+SENSITIVE = {'core.summarystatement', 'core.detailedstatement', 'core.accountingadjustment', 'auth.user', 'auth.group', 'core.employee', 'core.employeecategoryhistory',
     'core.travel', 'core.travelexpense', 'core.overnightstay', 'core.accommodationreceipt',
     'core.calculationsnapshot', 'core.settlementitem', 'core.travelattachment',
     'core.approvaldocument', 'core.useraccess', 'core.department', 'core.signatory',

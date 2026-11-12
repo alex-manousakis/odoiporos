@@ -52,7 +52,7 @@ def render_pdf(source):
     first_header_line=source['header'].splitlines()[0] if source['header'] else ''
     header_width=min(doc.width,max(38,pdfmetrics.stringWidth(first_header_line,'ApprovalGreek',style.fontSize)))
     emblem_block=Table([[emblem]],colWidths=[header_width],hAlign='LEFT')
-    emblem_block.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
+    emblem_block.setStyle(TableStyle([('ALIGN',(0,0),(-1,-1),'CENTER'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
     decision_markup=escape(source['decision_text'])
     for value in [source['employee']['approval_subject'],source['employee']['speciality']]:
         if value:decision_markup=decision_markup.replace(escape(value),'<b>'+escape(value)+'</b>')

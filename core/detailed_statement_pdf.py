@@ -7,6 +7,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,PageBreak,KeepTogether
 from .approval_pdf import fonts
+from .report_branding import government_header
 from .number_formats import greek_number
 
 WIDTH=A4[0]-50
@@ -38,7 +39,7 @@ def render_statement(source):
     center=ParagraphStyle('StatementCentered',parent=body,alignment=TA_CENTER)
     def para(value,style=body):return Paragraph(escape(str(value or '')).replace('\n','<br/>'),style)
     period=source['period'];employee=source['employee'];totals=source['totals']
-    heading=Table([[para('\n'.join(source['header'].splitlines()[:4])),para('ΟΙΚΟΝΟΜΙΚΟ ΕΤΟΣ: '+str(period['year'])+'\nΔΙΑΣΤΗΜΑ: '+period['name']+'\n'+period['from']+' – '+period['to']+'\nΕΔΡΑ: '+source['place'])]],colWidths=[WIDTH*.63,WIDTH*.37])
+    heading=Table([[government_header(source['header'],body),para('ΟΙΚΟΝΟΜΙΚΟ ΕΤΟΣ: '+str(period['year'])+'\nΔΙΑΣΤΗΜΑ: '+period['name']+'\n'+period['from']+' – '+period['to']+'\nΕΔΡΑ: '+source['place'])]],colWidths=[WIDTH*.63,WIDTH*.37])
     heading.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
     flow=[heading,Spacer(1,9),para('ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ ΔΑΠΑΝΗΣ ΟΔΟΙΠΟΡΙΚΩΝ ΚΑΙ ΗΜΕΡΗΣΙΑΣ ΑΠΟΖΗΜΙΩΣΗΣ',title),para('(ΗΜΕΡΟΛΟΓΙΑΚΗ ΚΑΤΑΣΤΑΣΗ)',center),para('του αναφερόμενου υπαλλήλου, για μετάβαση και εκτέλεση υπηρεσίας εντός και εκτός έδρας, στο Εσωτερικό και Εξωτερικό',center)]
     identity=employee['name']
@@ -47,7 +48,7 @@ def render_statement(source):
     if employee['department']:identity+=' της '+employee['department']
     if source['service']:identity+=' '+source['service']
     identity_markup='<b>'+escape(employee['name'])+'</b>'+escape(identity[len(employee['name']):])
-    bank_markup='<b>ΑΦΜ: '+escape(employee['tax_number'])+'</b>    <b>Λογαρ. Τράπεζας (IBAN): '+escape(employee['iban'])+'</b>'
+    bank_markup='ΑΦΜ: <b>'+escape(employee['tax_number'])+'</b>    Λογαρ. Τράπεζας (IBAN): <b>'+escape(employee['iban'])+'</b>'
     flow += [Spacer(1,8),Paragraph(identity_markup,body),Paragraph(bank_markup,body),Spacer(1,8)]
     columns=[('dates','ΗΜΕΡ/ΝΙΕΣ ΜΕΤ/ΣΗΣ',49),('route','ΤΟΠΟΣ / ΜΕΣΟ ΜΕΤ/ΣΗΣ',56),('purpose','ΑΙΤΙΟΛΟΓΙΑ',94),
         ('near_days','ΗΜΕΡΕΣ ΕΝΤΟΣ ΕΔΡΑΣ ΕΣ/ΚΟΥ',32),('domestic_days','ΗΜΕΡΕΣ ΕΚΤΟΣ ΕΔΡΑΣ ΕΣ/ΚΟΥ',32),('domestic_factor','ΣΥΝ/ΤΗΣ ΗΜ/ΣΙΑΣ ΑΠ/ΣΗΣ ΕΣ/ΚΟΥ',31),

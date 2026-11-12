@@ -27,3 +27,6 @@ urlpatterns += [path('dashboard/',dashboard,name='dashboard')]
 
 from . import detailed_statement
 urlpatterns += [path('reports/detailed-statement/',detailed_statement.statement_form,name='detailed_statement'),path('reports/detailed-statement/<int:pk>/pdf/',detailed_statement.statement_download,name='detailed_statement_download')]
+
+from . import summary_statement
+urlpatterns += [path('reports/summary-statement/',summary_statement.summary_form,name='summary_statement'),path('reports/summary-statement/<int:pk>/pdf/',summary_statement.summary_download,name='summary_statement_download')]
