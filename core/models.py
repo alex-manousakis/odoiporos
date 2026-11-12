@@ -534,3 +534,20 @@ class SummaryStatement(models.Model):
         default_permissions = ()
         permissions = [('view_summarystatement', 'Can view summary statement'), ('print_summarystatement', 'Can print summary statement')]
         ordering = ['-created_at','-pk']
+
+
+class EmployeeRecordCard(models.Model):
+    starts_on = models.DateField()
+    ends_on = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    employees = models.ManyToManyField(Employee, related_name='record_cards')
+    content = models.BinaryField()
+    source = models.JSONField()
+    sha256 = models.CharField(max_length=64)
+
+    class Meta:
+        default_permissions = ()
+        permissions = [('view_employeerecordcard', 'Can view employee record card'), ('print_employeerecordcard', 'Can print employee record card')]
+        ordering = ['-created_at', '-pk']
+        constraints = [models.CheckConstraint(condition=models.Q(ends_on__gte=models.F('starts_on')), name='employee_record_card_dates')]

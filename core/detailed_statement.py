@@ -72,6 +72,18 @@ def report_row(travel,snapshot):
         'total':snapshot.total}
     return row
 
+def statement_calculation(travel,period=None):
+    settled=SettlementItem.objects.filter(calculation__travel=travel).select_related('calculation').first()
+    if period and settled and settled.period_id!=period.pk:raise ValidationError('Η μετακίνηση '+str(travel.pk)+' ανήκει σε άλλη περίοδο εκκαθάρισης.')
+    candidates=list(travel.calculations.all())
+    actual=[s for s in candidates if s.stage=='actual' and s.frozen_at]
+    estimates=[s for s in candidates if s.stage=='estimate']
+    chosen=settled.calculation if settled else max(actual,key=lambda s:s.revision) if actual else max(estimates,key=lambda s:s.revision) if estimates else None
+    if not chosen:raise ValidationError('Η μετακίνηση '+str(travel.pk)+' δεν έχει υπολογισμό. Αποθηκεύστε την πρώτα.')
+    if chosen.stage=='estimate' and (chosen.algorithm_version!='estimate-3' or chosen.inputs.get('signature')!=signature(input_state(travel))):
+        raise ValidationError('Η εκτίμηση της μετακίνησης '+str(travel.pk)+' δεν είναι ενημερωμένη. Αποθηκεύστε την ξανά.')
+    return chosen
+
 @transaction.atomic
 def build_statement_source(user,employee,period,signatory,print_date,require_payment_details=True):
     require_statement_access(user)
@@ -86,15 +98,7 @@ def build_statement_source(user,employee,period,signatory,print_date,require_pay
     if not trips:raise ValidationError('Δεν υπάρχουν μετακινήσεις του εργαζομένου με αναχώρηση μέσα στην περίοδο.')
     rows=[]
     for travel in trips:
-        settled=SettlementItem.objects.filter(calculation__travel=travel).select_related('calculation').first()
-        if settled and settled.period_id!=period.pk:raise ValidationError('Η μετακίνηση '+str(travel.pk)+' ανήκει σε άλλη περίοδο εκκαθάρισης.')
-        candidates=list(travel.calculations.all())
-        actual=[s for s in candidates if s.stage=='actual' and s.frozen_at]
-        estimates=[s for s in candidates if s.stage=='estimate']
-        chosen=settled.calculation if settled else max(actual,key=lambda s:s.revision) if actual else max(estimates,key=lambda s:s.revision) if estimates else None
-        if not chosen:raise ValidationError('Η μετακίνηση '+str(travel.pk)+' δεν έχει υπολογισμό. Αποθηκεύστε την πρώτα.')
-        if chosen.stage=='estimate' and (chosen.algorithm_version!='estimate-3' or chosen.inputs.get('signature')!=signature(input_state(travel))):
-            raise ValidationError('Η εκτίμηση της μετακίνησης '+str(travel.pk)+' δεν είναι ενημερωμένη. Αποθηκεύστε την ξανά.')
+        chosen=statement_calculation(travel,period)
         rows.append(report_row(travel,chosen))
     totals={key:sum((row[key] for row in rows),ZERO) for key in NUMERIC_COLUMNS+['daily_domestic','daily_abroad','total']}
     daily=totals['daily_domestic']+totals['daily_abroad']

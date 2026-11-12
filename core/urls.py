@@ -30,3 +30,6 @@ urlpatterns += [path('reports/detailed-statement/',detailed_statement.statement_
 
 from . import summary_statement
 urlpatterns += [path('reports/summary-statement/',summary_statement.summary_form,name='summary_statement'),path('reports/summary-statement/<int:pk>/pdf/',summary_statement.summary_download,name='summary_statement_download')]
+
+from . import employee_card
+urlpatterns += [path('reports/employee-card/',employee_card.card_form,name='employee_card'),path('reports/employee-card/<int:pk>/pdf/',employee_card.card_download,name='employee_card_download')]

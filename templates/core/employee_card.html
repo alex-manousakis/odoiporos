@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% load static %}{% block content %}
+<h1>Εκτύπωση Καρτέλας Εργαζομένου</h1>
+<p>Επιλέξτε διάστημα και έναν ή περισσότερους εργαζομένους. Κάθε καρτέλα ξεκινά σε νέα σελίδα του ίδιου PDF.</p>
+<p>Περιλαμβάνονται όσες μετακινήσεις συμπίπτουν με το διάστημα, με ολόκληρα τα αποθηκευμένα ποσά τους. Χρησιμοποιούνται οι οριστικοποιημένοι υπολογισμοί ή, όπου δεν υπάρχουν, οι τελευταίες ενημερωμένες εκτιμήσεις. Η εκτύπωση δεν καταχωρίζει εξόφληση.</p>
+<form method="post" class="employee-card-form">{% csrf_token %}{{ form.non_field_errors }}
+<section class="panel"><div class="employee-card-dates">{% include 'core/field.html' with field=form.starts_on %}{% include 'core/field.html' with field=form.ends_on %}</div>
+<fieldset><legend>Εργαζόμενοι</legend><p>Εμφανίζονται μόνο εργαζόμενοι για τους οποίους έχετε πρόσβαση στις μετακινήσεις.</p>
+<div class="employee-card-tools" hidden><label for="card-search">Αναζήτηση ονόματος ή μονάδας<input id="card-search" type="search" autocomplete="off"></label><button type="button" class="secondary" id="card-select-all">Επιλογή εμφανιζόμενων</button><button type="button" class="secondary" id="card-clear">Καθαρισμός επιλογών</button><span id="card-selected-count" aria-live="polite"></span></div>
+{{ form.employees.errors }}<div class="employee-card-choices">{{ form.employees }}</div></fieldset></section>
+<div class="trip-list-toolbar"><button name="export" value="preview">Προεπισκόπηση / Εκτύπωση</button><button name="export" value="download" class="secondary">Εξαγωγή PDF</button></div>
+</form><script src="{% static 'js/employee-card.js' %}" defer></script>{% endblock %}
